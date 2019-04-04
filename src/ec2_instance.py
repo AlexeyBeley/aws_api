@@ -1,0 +1,132 @@
+import pdb
+import re
+
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
+from ip import IP
+from aws_object import AwsObject
+
+
+class EC2Instance(AwsObject):
+    def __init__(self, dict_src, from_cache=False):
+        """
+        Init EC2 instance with boto3 dict
+        :param dict_src:
+        """
+        super(EC2Instance, self).__init__(dict_src)
+        if from_cache:
+            self._init_instance_from_cashe(dict_src)
+            return
+
+        self.network_interfaces = []
+        self.tags = {}
+
+        init_options = {
+                        "InstanceId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                        "NetworkInterfaces": self.init_interfaces,
+                        "Tags": self.init_tags,
+                        "AmiLaunchIndex": self.init_default_attr,
+                        "ImageId": self.init_default_attr,
+                        "InstanceType": self.init_default_attr,
+                        "KeyName": self.init_default_attr,
+                        "LaunchTime": self.init_default_attr,
+                        "Monitoring": self.init_default_attr,
+                        "Placement": self.init_default_attr,
+                        "PrivateDnsName": self.init_default_attr,
+                        "PrivateIpAddress": self.init_default_attr,
+                        "ProductCodes": self.init_default_attr,
+                        "PublicDnsName": self.init_default_attr,
+                        "State": self.init_default_attr,
+                        "StateTransitionReason": self.init_default_attr,
+                        "SubnetId": self.init_default_attr,
+                        "VpcId": self.init_default_attr,
+                        "Architecture": self.init_default_attr,
+                        "BlockDeviceMappings": self.init_default_attr,
+                        "ClientToken": self.init_default_attr,
+                        "EbsOptimized": self.init_default_attr,
+                        "EnaSupport": self.init_default_attr,
+                        "Hypervisor": self.init_default_attr,
+                        "IamInstanceProfile": self.init_default_attr,
+                        "RootDeviceName": self.init_default_attr,
+                        "RootDeviceType": self.init_default_attr,
+                        "SecurityGroups": self.init_default_attr,
+                        "SourceDestCheck": self.init_default_attr,
+                        "StateReason": self.init_default_attr,
+                        "VirtualizationType": self.init_default_attr,
+                        "CpuOptions": self.init_default_attr,
+                        "PublicIpAddress": self.init_default_attr,
+                        "Association": self.init_default_attr,
+                        "CapacityReservationSpecification": self.init_default_attr,
+                        "KernelId": self.init_default_attr,
+                        "Platform": self.init_default_attr,
+                        "SpotInstanceRequestId": self.init_default_attr,
+                        "InstanceLifecycle": self.init_default_attr,
+                        "HibernationOptions": self.init_default_attr}
+
+        self.init_attrs(dict_src, init_options)
+
+        tag_name = self.get_tag("Name")
+        self.name = tag_name if tag_name else self.id
+
+    def _init_instance_from_cashe(self, dict_src):
+        options = {'create_date': self.init_date_attr_from_cache_string,
+                   'update_date':  self.init_date_attr_from_cache_string,
+                   'network_interfaces': self._init_network_interfaces_from_cache}
+        pdb.set_trace()
+        self._init_from_cache(dict_src, options)
+
+    def _init_network_interfaces_from_cache(self, key, value):
+        pdb.set_trace()
+
+    def init_tags(self, _, tags):
+        for tag in tags:
+            self.tags[tag["Key"]] = tag["Value"]
+
+    def get_tag(self, key):
+        if key in self.tags:
+            return self.tags[key]
+
+    def init_interfaces(self, _, interfaces):
+        for interface in interfaces:
+            self.network_interfaces.append(self.NetworkInterface(interface))
+
+    class NetworkInterface(AwsObject):
+        def __init__(self, dict_src, from_cache=False):
+            super(EC2Instance.NetworkInterface, self).__init__(dict_src)
+            if from_cache:
+                self._init_interface_from_cashe(dict_src)
+                return
+
+            self.private_ip_address = None
+
+            init_options = {
+                            "NetworkInterfaceId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                            "PrivateIpAddress": self.init_private_ip_address,
+                            "Attachment": self.init_default_attr,
+                            "Description": self.init_default_attr,
+                            "Groups": self.init_default_attr,
+                            "Ipv6Addresses": self.init_default_attr,
+                            "MacAddress": self.init_default_attr,
+                            "OwnerId": self.init_default_attr,
+                            "PrivateDnsName": self.init_default_attr,
+                            "PrivateIpAddresses": self.init_default_attr,
+                            "SourceDestCheck": self.init_default_attr,
+                            "Status": self.init_default_attr,
+                            "Association": self.init_default_attr,
+                            "SubnetId": self.init_default_attr,
+                            "VpcId": self.init_default_attr,
+                            }
+
+            self.init_attrs(dict_src, init_options)
+            self.name = self.id
+
+        def _init_interface_from_cashe(self, dict_src):
+            options = {'create_date': self.init_date_attr_from_cache_string,
+                       'update_date': self.init_date_attr_from_cache_string,
+                       'document': self._init_document_from_cache}
+            pdb.set_trace()
+            self._init_from_cache(dict_src, options)
+
+        def init_private_ip_address(self, _, value):
+            self.private_ip_address = IP(value+"/32")
