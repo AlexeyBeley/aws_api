@@ -15,12 +15,13 @@ class EC2Instance(AwsObject):
         :param dict_src:
         """
         super(EC2Instance, self).__init__(dict_src)
-        if from_cache:
-            self._init_instance_from_cashe(dict_src)
-            return
 
         self.network_interfaces = []
         self.tags = {}
+
+        if from_cache:
+            self._init_instance_from_cache(dict_src)
+            return
 
         init_options = {
                         "InstanceId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
@@ -69,15 +70,18 @@ class EC2Instance(AwsObject):
         tag_name = self.get_tag("Name")
         self.name = tag_name if tag_name else self.id
 
-    def _init_instance_from_cashe(self, dict_src):
-        options = {'create_date': self.init_date_attr_from_cache_string,
-                   'update_date':  self.init_date_attr_from_cache_string,
+    def _init_instance_from_cache(self, dict_src):
+        options = {'launch_time': self.init_date_attr_from_cache_string,
                    'network_interfaces': self._init_network_interfaces_from_cache}
-        pdb.set_trace()
+
         self._init_from_cache(dict_src, options)
 
-    def _init_network_interfaces_from_cache(self, key, value):
-        pdb.set_trace()
+    def _init_network_interfaces_from_cache(self, key, lst_src):
+        if self.network_interfaces:
+            raise NotImplementedError
+        else:
+            for interface in lst_src:
+                self.network_interfaces.append(self.NetworkInterface(interface, from_cache=True))
 
     def init_tags(self, _, tags):
         for tag in tags:
@@ -94,15 +98,15 @@ class EC2Instance(AwsObject):
     class NetworkInterface(AwsObject):
         def __init__(self, dict_src, from_cache=False):
             super(EC2Instance.NetworkInterface, self).__init__(dict_src)
-            if from_cache:
-                self._init_interface_from_cashe(dict_src)
-                return
 
             self.private_ip_address = None
+            if from_cache:
+                self._init_interface_from_cache(dict_src)
+                return
 
             init_options = {
                             "NetworkInterfaceId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
-                            "PrivateIpAddress": self.init_private_ip_address,
+                            "PrivateIpAddress": self._init_private_ip_address,
                             "Attachment": self.init_default_attr,
                             "Description": self.init_default_attr,
                             "Groups": self.init_default_attr,
@@ -121,12 +125,23 @@ class EC2Instance(AwsObject):
             self.init_attrs(dict_src, init_options)
             self.name = self.id
 
-        def _init_interface_from_cashe(self, dict_src):
-            options = {'create_date': self.init_date_attr_from_cache_string,
-                       'update_date': self.init_date_attr_from_cache_string,
-                       'document': self._init_document_from_cache}
-            pdb.set_trace()
+        def _init_interface_from_cache(self, dict_src):
+            options = {
+                        'private_ip_address': self._init_private_ip_address_from_cache,
+                       }
+
             self._init_from_cache(dict_src, options)
 
-        def init_private_ip_address(self, _, value):
+        def convert_to_dict(self):
+            custom_types = {IP: lambda x: x.convert_to_dict()}
+            return self.convert_to_dict_static(self.__dict__, custom_types=custom_types)
+
+        def _init_private_ip_address_from_cache(self, _, value):
+            if self.private_ip_address is not None:
+                raise NotImplementedError
+            else:
+                self.private_ip_address = IP(value, from_dict=True)
+
+        def _init_private_ip_address(self, _, value):
+
             self.private_ip_address = IP(value+"/32")

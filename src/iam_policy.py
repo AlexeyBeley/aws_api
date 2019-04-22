@@ -37,14 +37,9 @@ class IamPolicy(AwsObject):
 
     def _init_policy_from_cashe(self, dict_src):
         options = {'create_date': self.init_date_attr_from_cache_string,
-                   'update_date':  self.init_date_attr_from_cache_string,
-                   'document': self._init_document_from_cache}
+                   'update_date':  self.init_date_attr_from_cache_string}
 
         self._init_from_cache(dict_src, options)
-
-    def _init_document_from_cache(self, attr_name, dict_src):
-        # todo:
-        print("# todo:"+attr_name)
 
     def update_statements(self, dict_src):
         init_options = {

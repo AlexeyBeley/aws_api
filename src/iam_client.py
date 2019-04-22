@@ -4,35 +4,7 @@ from iam_access_key import IamAccessKey
 from iam_policy import IamPolicy
 from boto3_client import Boto3Client
 from iam_role import IamRole
-
-
-class CommonUtils:
-    @staticmethod
-    def find_objects_by_values(objects, values, max_count):
-        """
-        Find objects with all specified values.
-        If no such attr: do not add to the return list
-
-        :param objects: list of objects
-        :param values: dict of key - value
-        :param max_count: Maximum amount to return
-        :return:
-        """
-
-        objects_ret = []
-        for obj in objects:
-            for key, value in values.items():
-                try:
-                    if getattr(obj, key) != value:
-                        break
-                except AttributeError:
-                    break
-            else:
-                objects_ret.append(obj)
-                if len(objects_ret) >= max_count:
-                    break
-
-        return objects_ret
+from common_utils import CommonUtils
 
 
 class IamClient(Boto3Client):
@@ -73,7 +45,7 @@ class IamClient(Boto3Client):
         users = self.get_all_users()
 
         for user in users:
-            for result in self.get_with_paginator("list_access_keys", "AccessKeyMetadata", filters_req={"UserName": user.name}):
+            for result in self.execute("list_access_keys", "AccessKeyMetadata", filters_req={"UserName": user.name}):
                 final_result.append(IamAccessKey(result))
 
         return final_result
@@ -81,7 +53,7 @@ class IamClient(Boto3Client):
     def get_all_roles(self):
         final_result = list()
 
-        for result in self.get_with_paginator("list_roles", "Roles"):
+        for result in self.execute("list_roles", "Roles"):
             final_result.append(IamRole(result))
 
     def get_all_policies(self, full_inforamtion=True):

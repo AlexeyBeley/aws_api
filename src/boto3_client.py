@@ -7,9 +7,18 @@ class Boto3Client(object):
     CLIENTS = {}
     LOCK = threading.Lock()
     SESSION = None
+    EXEC_COUNT = 0
 
     def __init__(self, client_name, aws_key_id, aws_access_secret, region_name, logger):
-        # self._connect_session()
+        """
+        self.client shouldn't be inited, the init should be done on demand if execute is called
+
+        :param client_name:
+        :param aws_key_id:
+        :param aws_access_secret:
+        :param region_name:
+        :param logger:
+        """
         self.aws_key_id = aws_key_id
         self.aws_access_secret = aws_access_secret
         self.region_name = region_name
@@ -27,7 +36,7 @@ class Boto3Client(object):
 
     @client.setter
     def client(self, _):
-        self._connect_client()
+        raise NotImplementedError
 
     def _connect_client(self):
         acquired = self.LOCK.acquire(blocking=False)
@@ -38,6 +47,10 @@ class Boto3Client(object):
 
         finally:
             self.LOCK.release()
+
+    def _connect(self):
+        self._connect_session()
+        self._connect_client()
 
     def _connect_session(self):
         try:
@@ -58,19 +71,23 @@ class Boto3Client(object):
         if filters_req is None:
             filters_req = {}
         for _page in self.client.get_paginator(command).paginate(**filters_req):
+            Boto3Client.EXEC_COUNT += 1
             ret += _page[return_string]
 
         return ret
 
-    def execute(self, command, return_string, filters_req=None):
-        try:
-            can_paginate = self.client.can_paginate(command)
-        except AttributeError:
-            self._connect_session()
-            self._connect_client()
-            can_paginate = self.client.can_paginate(command)
+    def execute(self, command, return_string, filters_req=None, debug=False):
+        Boto3Client.EXEC_COUNT += 1
+        if filters_req is None:
+            filters_req = {}
 
-        if can_paginate:
+        if self.client is None:
+            self._connect()
+
+        if debug:
+            pdb.set_trace()
+
+        if self.client.can_paginate(command):
             return self.get_with_paginator(command, return_string, filters_req=filters_req)
 
         try:
