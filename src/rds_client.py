@@ -1,19 +1,19 @@
 import pdb
 from boto3_client import Boto3Client
-from elb_load_balancer import ClassicLoadBalancer
+from rds_db_instance import DBInstance
 
 
-class ELBClient(Boto3Client):
+class RDSClient(Boto3Client):
     def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
-        client_name = "elb"
-        super(ELBClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
+        client_name = "rds"
+        super(RDSClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
-    def get_all_load_balancers(self, full_information=True):
+    def get_all_databases(self, full_information=True):
         final_result = list()
-        self.execute(self._client.describe_instasnce)
-        for response in self.execute("describe_load_balancers", "LoadBalancerDescriptions"):
 
-            obj = ClassicLoadBalancer(response)
+        for response in self.execute("describe_db_instances", "DBInstances"):
+
+            obj = DBInstance(response)
             final_result.append(obj)
 
             if full_information:

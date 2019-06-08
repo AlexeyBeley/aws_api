@@ -38,3 +38,26 @@ class LoadBalancer(AwsObject):
                    'created_date':  self.init_date_attr_from_cache_string,
                    }
         self._init_from_cache(dict_src, options)
+
+    def get_dns_records(self):
+        """
+        Get dns fqdn pointing this db
+
+        :return:
+        """
+        ret = [self.dns_name] if self.dns_name else []
+
+        return ret
+
+    def get_security_groups_ids(self):
+        """
+        Get sg ids, specified in this lb
+
+        :return:
+        """
+        grps = self.__dict__.get("security_groups")
+
+        if not grps:
+            return []
+
+        return grps

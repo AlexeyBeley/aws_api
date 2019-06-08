@@ -3,7 +3,7 @@ import pdb
 import datetime
 
 
-class AwsObject:
+class AwsObject(object):
     #  for x, y in dict_src.items(): print('"'+str(x)+'"' +": "+ "self.init_default_attr" + ",")
     #  compile re for Name usage
     _FIRST_CAP_RE = re.compile('(.)([A-Z][a-z]+)')
@@ -66,11 +66,16 @@ class AwsObject:
 
     def init_attrs(self, dict_src, dict_options):
         for key_src, value in dict_src.items():
-            if key_src not in dict_options:
+            try:
+                dict_options[key_src](key_src, value)
+            except KeyError:
                 for key_src_, value_ in dict_src.items():
-                    print("{}  {}".format(key_src_, key_src_ in dict_options))
+                    if key_src_ not in dict_options:
+                        print('"{}":  self.init_default_attr,'.format(key_src_))
+
                 raise self.UnknownKeyError("Unknown key: " + key_src)
-            dict_options[key_src](key_src, value)
+
+
 
     def update_attributes(self, dict_src):
         for key_src, value in dict_src.items():

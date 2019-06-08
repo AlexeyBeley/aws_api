@@ -95,6 +95,20 @@ class EC2Instance(AwsObject):
         for interface in interfaces:
             self.network_interfaces.append(self.NetworkInterface(interface))
 
+    def get_dns_records(self):
+        ret = []
+        if self.private_dns_name:
+            ret.append(self.private_dns_name)
+
+        if self.public_dns_name:
+            ret.append(self.public_dns_name)
+
+        return ret
+
+    def get_security_groups_ids(self):
+        return [sg_dict["GroupId"] for sg_dict in self.security_groups]
+
+
     class NetworkInterface(AwsObject):
         def __init__(self, dict_src, from_cache=False):
             super(EC2Instance.NetworkInterface, self).__init__(dict_src)
@@ -145,3 +159,5 @@ class EC2Instance(AwsObject):
         def _init_private_ip_address(self, _, value):
 
             self.private_ip_address = IP(value+"/32")
+
+

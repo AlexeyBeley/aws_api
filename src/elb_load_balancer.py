@@ -42,3 +42,8 @@ class ClassicLoadBalancer(AwsObject):
                    'created_date':  self.init_date_attr_from_cache_string,
                    }
         self._init_from_cache(dict_src, options)
+
+    def get_dns_records(self):
+        ret = [self.dns_name] if self.dns_name else []
+
+        return ret

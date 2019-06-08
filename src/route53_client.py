@@ -14,12 +14,12 @@ class Route53Client(Boto3Client):
         for response in self.execute("list_hosted_zones", "HostedZones"):
 
             obj = HostedZone(response)
-            final_result.append(obj)
 
             if full_information:
                 update_info = self.execute("list_resource_record_sets", "ResourceRecordSets", filters_req={"HostedZoneId": obj.id})
                 obj.update_record_set(update_info)
 
+            final_result.append(obj)
             # import pprint
             # printer = pprint.PrettyPrinter(indent=4)
             # for user in ret:  printer.pprint(user)
