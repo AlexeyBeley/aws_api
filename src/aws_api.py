@@ -4,6 +4,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
+from enum import Enum
 from ip import IP
 
 from ec2_client import EC2Client
@@ -217,18 +218,87 @@ class DNSMap(object):
         return dict_types
 
 
-class SecurityGroupMapNode(object):
+class SecurityGroupMapEdge(object):
+    def __init__(self, edge_type, value, ip_protocol, from_port, to_port, description):
+        self.type = edge_type
+        self.dst = value
+        self.ip_protocol = ip_protocol
+        self.from_port = from_port
+        self.to_port = to_port
+        self.description = description
 
-    def __init__(self):
-        self.type = None  # str sg/endpoint
-        self.value = None  # str sg name if sg, object if endpoint
+    class Type(Enum):
+        """
+            Possible Security group values
+        """
+
+        SECURITY_GROUP = 0
+        IP = 1
+
+
+class SecurityGroupMapNode(object):
+    def __init__(self, security_group):
+        self.security_group = security_group
+        self.outgoing_edges = []
+        self.incoming_edges = []
+
+        for permission in self.security_group.ip_permissions:
+            self.add_edges_from_permission(self.incoming_edges, permission)
+
+        for permission in self.security_group.ip_permissions_egress:
+            self.add_edges_from_permission(self.outgoing_edges, permission)
+
+    def add_edges_from_permission(self, dst_lst, permission):
+        """
+
+        :param dst_lst:
+        :param permission: Security Group Permissions
+        :return:
+        """
+        lst_ret = []
+        edge_type = SecurityGroupMapEdge.Type.SECURITY_GROUP
+        for dict_pair in permission.user_id_group_pairs:
+            description = dict_pair["GroupName"] if "GroupName" in dict_pair else None
+            description = dict_pair["Description"] if "Description" in dict_pair else description
+            for key in dict_pair:
+                if key not in ["Description", "GroupId", "UserId", "GroupName"]:
+                    raise Exception(key)
+            lst_ret.append((edge_type, dict_pair["GroupId"], description))
+
+        edge_type = SecurityGroupMapEdge.Type.IP
+        for addr in permission.ipv4_ranges:
+            lst_ret.append((edge_type, addr.ip, addr.description))
+
+        for addr in permission.ipv6_ranges:
+            lst_ret.append((edge_type, addr.ip, addr.description))
+
+        for edge_type, value, description in lst_ret:
+            ip_protocol = permission.ip_protocol if hasattr(permission, "ip_protocol") else None
+            from_port = permission.from_port if hasattr(permission, "from_port") else None
+            to_port = permission.to_port if hasattr(permission, "to_port") else None
+
+            edge = SecurityGroupMapEdge(edge_type, value, description, ip_protocol, from_port, to_port)
+            dst_lst.append(edge)
+
+        if permission.prefix_list_ids:
+            raise Exception
+
+    def add_data(self, data):
+        pdb.set_trace()
 
 
 class SecurityGroupsMap(object):
-
     def __init__(self):
         self.nodes = {}
-        self.ages = {}
+
+    def add_node(self, node):
+        if node.security_group.id in self.nodes:
+            raise Exception
+
+        self.nodes[node.security_group.id] = node
+
+    def add_node_data(self, security_group_id, data):
+        self.nodes[security_group_id].add_data(data)
 
 
 class AWSAPI(object):
@@ -387,18 +457,29 @@ class AWSAPI(object):
         sg_map = self.prepare_security_groups_mapping()
 
     def prepare_security_groups_mapping(self):
+        sg_map = SecurityGroupsMap()
+        for sg in self.security_groups:
+            node = SecurityGroupMapNode(sg)
+            sg_map.add_node(node)
+
         for ec2_instance in self.ec2_instances:
-            sg_ids = ec2_instance.get_security_groups_ids()
+            sg_ids = ec2_instance.get_security_groups_endpoints()
+            for sg_id in sg_ids:
+                sg_map.add_node_data(sg_id, ec2_instance)
 
         for lb in self.load_balancers:
-            sg_ids = lb.get_security_groups_ids()
+            sg_ids = lb.get_security_groups_endpoints()
+            for sg_id in sg_ids:
+                continue
+                sg_map.add_node_data(sg_id, lb)
 
         for rds in self.databases:
-            sg_ids = rds.get_security_groups_ids()
-            pdb.set_trace()
+            endpoints = rds.get_security_groups_endpoints()
+            for endpoint in endpoints:
+                sg_map.add_node_data(endpoint["sg_id"], endpoint)
 
         pdb.set_trace()
-        SecurityGroupsMap()
+
 
     def cleanup_report_dns_records(self):
         dns_map = self.prepare_hosted_zones_mapping()

@@ -9,16 +9,18 @@ class EC2Client(Boto3Client):
         client_name = "ec2"
         super(EC2Client, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
+    @Boto3Client.requires_connection
     def get_all_instances(self):
         final_result = list()
-        for instance in self.execute("describe_instances", "Reservations"):
+        for instance in self.execute(self.client.describe_instances, "Reservations"):
             final_result.extend(instance['Instances'])
 
         return [EC2Instance(instance) for instance in final_result]
 
+    @Boto3Client.requires_connection
     def get_all_security_groups(self, full_information=False):
         final_result = list()
-        for ret in self.execute("describe_security_groups", "SecurityGroups"):
+        for ret in self.execute(self.client.describe_security_groups, "SecurityGroups"):
             obj = EC2SecurityGroup(ret)
             if full_information is True:
                 raise NotImplementedError

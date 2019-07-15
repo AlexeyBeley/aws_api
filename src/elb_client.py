@@ -8,11 +8,11 @@ class ELBClient(Boto3Client):
         client_name = "elb"
         super(ELBClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
+    @Boto3Client.requires_connection
     def get_all_load_balancers(self, full_information=True):
         final_result = list()
-        self.execute(self._client.describe_instasnce)
-        for response in self.execute("describe_load_balancers", "LoadBalancerDescriptions"):
 
+        for response in self.execute(self.client.describe_load_balancers, "LoadBalancerDescriptions"):
             obj = ClassicLoadBalancer(response)
             final_result.append(obj)
 

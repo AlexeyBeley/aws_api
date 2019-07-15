@@ -105,9 +105,17 @@ class EC2Instance(AwsObject):
 
         return ret
 
-    def get_security_groups_ids(self):
-        return [sg_dict["GroupId"] for sg_dict in self.security_groups]
+    def get_security_groups_endpoints(self):
+        lst_ret = []
 
+        for inter in self.network_interfaces:
+            lst_ret_inter = inter.get_security_groups_endpoints()
+            for ret_inter in lst_ret_inter:
+                ret_inter["service_name"] = "EC2"
+                ret_inter["device_name"] = self.name
+                lst_ret.append(ret_inter)
+
+        return lst_ret
 
     class NetworkInterface(AwsObject):
         def __init__(self, dict_src, from_cache=False):
@@ -160,4 +168,21 @@ class EC2Instance(AwsObject):
 
             self.private_ip_address = IP(value+"/32")
 
+        def get_security_groups_endpoints(self):
+            lst_ret = []
+            all_addresses = []
+            for sec_grp in self.groups:
+                for dict_addr in self.private_ip_addresses:
+                    if "Association" in dict_addr:
+                        all_addresses.append(dict_addr["Association"]["PublicIp"])
+                    all_addresses.append(dict_addr["PrivateIpAddress"])
+                if self.private_ip_address.str_address not in all_addresses:
+                    raise Exception
 
+                for dict_addr in self.ipv6_addresses:
+                    pdb.set_trace()
+                    all_addresses.append(dict_addr["Association"]["PublicIp"])
+                    all_addresses.append(dict_addr["PrivateIpAddress"])
+                if self.private_ip_address.str_address not in all_addresses:
+                    raise Exception
+            return lst_ret

@@ -6,6 +6,8 @@ import datetime
 class AwsObject(object):
     #  for x, y in dict_src.items(): print('"'+str(x)+'"' +": "+ "self.init_default_attr" + ",")
     #  compile re for Name usage
+
+    # Regex for manipulating CamelCase attr names
     _FIRST_CAP_RE = re.compile('(.)([A-Z][a-z]+)')
     _ALL_CAP_RE = re.compile('([a-z0-9])([A-Z])')
 
@@ -75,8 +77,6 @@ class AwsObject(object):
 
                 raise self.UnknownKeyError("Unknown key: " + key_src)
 
-
-
     def update_attributes(self, dict_src):
         for key_src, value in dict_src.items():
             self.init_default_attr(key_src, value)
@@ -111,7 +111,7 @@ class AwsObject(object):
 
     @staticmethod
     def convert_to_dict_static(obj_src, custom_types=None):
-        if type(obj_src) in [str, int, bool]:
+        if type(obj_src) in [str, int, bool, type(None)]:
             return obj_src
         elif type(obj_src) == dict:
             ret = {}

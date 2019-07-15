@@ -9,9 +9,10 @@ class ELBV2Client(Boto3Client):
         client_name = "elbv2"
         super(ELBV2Client, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
+    @Boto3Client.requires_connection
     def get_all_load_balancers(self, full_information=True):
         final_result = list()
-        for response in self.execute("describe_load_balancers", "LoadBalancers"):
+        for response in self.execute(self.client.describe_load_balancers, "LoadBalancers"):
 
             obj = LoadBalancer(response)
             final_result.append(obj)
@@ -28,9 +29,10 @@ class ELBV2Client(Boto3Client):
             # for user in ret:  printer.pprint(user)
         return final_result
 
+    @Boto3Client.requires_connection
     def get_all_target_groups(self, full_information=True):
         final_result = list()
-        for response in self.execute("describe_target_groups", "TargetGroups"):
+        for response in self.execute(self.client.describe_target_groups, "TargetGroups"):
 
             obj = ELBV2TargetGroup(response)
             final_result.append(obj)

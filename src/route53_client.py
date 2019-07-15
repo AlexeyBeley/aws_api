@@ -8,15 +8,16 @@ class Route53Client(Boto3Client):
         client_name = "route53"
         super(Route53Client, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
+    @Boto3Client.requires_connection
     def get_all_hosted_zones(self, full_information=True):
         final_result = list()
 
-        for response in self.execute("list_hosted_zones", "HostedZones"):
+        for response in self.execute(self.client.list_hosted_zones, "HostedZones"):
 
             obj = HostedZone(response)
 
             if full_information:
-                update_info = self.execute("list_resource_record_sets", "ResourceRecordSets", filters_req={"HostedZoneId": obj.id})
+                update_info = self.execute(self.client.list_resource_record_sets, "ResourceRecordSets", filters_req={"HostedZoneId": obj.id})
                 obj.update_record_set(update_info)
 
             final_result.append(obj)

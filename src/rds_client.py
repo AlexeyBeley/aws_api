@@ -8,10 +8,11 @@ class RDSClient(Boto3Client):
         client_name = "rds"
         super(RDSClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
+    @Boto3Client.requires_connection
     def get_all_databases(self, full_information=True):
         final_result = list()
 
-        for response in self.execute("describe_db_instances", "DBInstances"):
+        for response in self.execute(self.client.describe_db_instances, "DBInstances"):
 
             obj = DBInstance(response)
             final_result.append(obj)

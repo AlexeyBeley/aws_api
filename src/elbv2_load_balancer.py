@@ -49,15 +49,20 @@ class LoadBalancer(AwsObject):
 
         return ret
 
-    def get_security_groups_ids(self):
+    def get_security_groups_endpoints(self):
         """
         Get sg ids, specified in this lb
 
         :return:
         """
+        ret = []
         grps = self.__dict__.get("security_groups")
+        grps = grps if grps is not None else []
 
-        if not grps:
-            return []
+        for sg in grps:
+            endpoint = {"sg_id": sg}
+            endpoint["dns"] = self.dns_name
+            endpoint["description"] = "lb: {}".format(self.name)
+            ret.append(endpoint)
 
-        return grps
+        return ret

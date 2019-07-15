@@ -41,10 +41,11 @@ class S3Bucket(AwsObject):
             raise NotImplementedError
 
     def _init_policy_from_cache(self, key, dict_src):
-        if self.policy is None:
-            self.policy = S3Bucket.Policy(dict_src, from_cache=True)
-        else:
+        if self.policy is not None:
             raise NotImplementedError
+
+        if dict_src is not None:
+            self.policy = S3Bucket.Policy(dict_src, from_cache=True)
 
     def update_acl(self, dict_src):
         if self.acl is None:
@@ -119,12 +120,16 @@ class S3Bucket(AwsObject):
 
             init_options = {
                 "Version": self.init_default_attr,
-                "Statement": self.init_default_attr
+                "Statement": self.init_default_attr,
+                "Id": self.init_default_attr,
             }
 
             self.init_attrs(dict_src, init_options)
 
         def _init_policy_from_cashe(self, dict_src):
             options = {}
-
-            self._init_from_cache(dict_src, options)
+            try:
+                self._init_from_cache(dict_src, options)
+            except Exception:
+                print(dict_src)
+                raise

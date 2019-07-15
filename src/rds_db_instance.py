@@ -19,7 +19,7 @@ class DBInstance(AwsObject):
         init_options = {
                         "LoadBalancerName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
                         "DNSName": self.init_default_attr,
-                        "DBInstanceIdentifier": self.init_default_attr,
+                        "DBInstanceIdentifier": self.init_db_instance_identifier,
                         "DBInstanceClass": self.init_default_attr,
                         "Engine": self.init_default_attr,
                         "DBInstanceStatus": self.init_default_attr,
@@ -67,9 +67,15 @@ class DBInstance(AwsObject):
 
         self.init_attrs(dict_src, init_options)
 
+    def init_db_instance_identifier(self, key_name, value):
+        if self.name is not None:
+            return
+
+        self.name = value
+
+
     def _init_object_from_cache(self, dict_src):
         options = {}
-
         self._init_from_cache(dict_src, options)
 
     def get_dns_records(self):
@@ -80,7 +86,7 @@ class DBInstance(AwsObject):
         ret = [self.endpoint["Address"]] if self.endpoint["Address"] else []
         return ret
 
-    def get_security_groups_ids(self):
+    def get_security_groups_endpoints(self):
         """
         Get sg ids, specified in this rds if there is "inactive" raises Exception
 
@@ -90,6 +96,10 @@ class DBInstance(AwsObject):
         for sg in self.vpc_security_groups:
             if sg["Status"] != "active":
                 raise Exception
-            ret.append(sg["VpcSecurityGroupId"])
+            endpoint = {"sg_id": sg["VpcSecurityGroupId"]}
+            endpoint["dns"] = self.endpoint["Address"]
+            endpoint["port"] = self.endpoint["Port"]
+            endpoint["description"] = "rds: {}".format(self.name)
+            ret.append(endpoint)
 
         return ret
