@@ -15,7 +15,7 @@ class ELBV2TargetGroup(AwsObject):
         if from_cache:
             self._init_object_from_cache(dict_src)
             return
-
+        self.target_health = None
         init_options = {
                         "TargetGroupArn": lambda x, y: self.init_default_attr(x, y, formated_name="arn"),
                         "TargetGroupName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
@@ -46,3 +46,6 @@ class ELBV2TargetGroup(AwsObject):
         ret = [self.dns_name] if self.dns_name else []
 
         return ret
+
+    def update_target_health(self, dict_src):
+        self.target_health = dict_src

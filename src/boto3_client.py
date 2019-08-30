@@ -109,12 +109,24 @@ class Boto3Client1(object):
 
 class DecoratorDescriptor(object):
     def __get__(self, instance, owner):
+        """
+        Used to return the descriptor when decorates child-classes' methods
+
+        :param instance:
+        :param owner:
+        :return:
+        """
         return self
 
     def __set__(self, instance, value):
         raise AttributeError("Descriptor Is not settable")
 
     def __call__(self, func_base):
+        """
+        Used, when accessed to the descriptor in order to decorate a method
+        :param func_base:
+        :return:
+        """
         def wrapper(*args, **kwargs):
             instance = args[0]
             if instance.client is None:

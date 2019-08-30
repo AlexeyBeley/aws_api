@@ -32,33 +32,64 @@ from iam_policy import IamPolicy
 from iam_user import IamUser
 
 from common_utils import CommonUtils
+from collections import defaultdict
 
 
 class HFlow(object):
     def __init__(self):
-        self.tunnels = []
-        self.source = None
-        self.sink = None
+        self.tunnel = None
+        self.end_point_src = None
+        self.end_point_src = None
 
     class EndPoint(object):
+        """
+        Hflow endpoint- maybe src, maybe dst.
+        This is abstract object representing hflow next stop.
+
+        """
         def __init__(self):
-            self.type = None
-            # can be "flow end" (if the flow reached its destination)
-            # can be "internet"
-            self.data = None  # dict {"type":"ec2", "value":obj}
+            self._ip = None
+            self._dns = None
+            self.custom = {}
 
+        @property
+        def ip(self):
+            return self._ip
 
-class HTunnel(object):
-    def __init__(self):
-        pass
+        @ip.setter
+        def ip(self, ip):
+            if self._ip is not None:
+                raise Exception("IP can be single instance")
+            self._ip = ip
 
+        @property
+        def dns(self):
+            return self._dns
 
-class IPTunnel(HTunnel):
-    def __init__(self):
-        super(IPTunnel, self).__init__()
-        self.src = None
-        self.dst = None
+        @dns.setter
+        def dns(self, dns):
+            if self._dns is not None:
+                raise Exception("IP can be single instance")
+            self._dns = dns
 
+        def add_custom(self, key, value):
+            """
+
+            :param key:
+            :param value: if can include multiple destinations, should implement __add__
+            :return:
+            """
+            if key in self.custom:
+                self.custom[key].add(value)
+            else:
+                self.custom[key] = value
+
+    class Tunnel(object):
+        def __init__(self):
+            self.ip_src = None
+            self.dns_src = None
+            self.ip_dst = None
+            self.dns_dst = None
 
 class TextBlock(object):
     def __init__(self, header):
@@ -69,8 +100,8 @@ class TextBlock(object):
 
 
 class DNS(object):
-    def __init__(self):
-        self.fqdn = None
+    def __init__(self, fqdn):
+        self.fqdn = fqdn
 
 
 class DNSMapNode(object):
@@ -241,6 +272,7 @@ class SecurityGroupMapNode(object):
         self.security_group = security_group
         self.outgoing_edges = []
         self.incoming_edges = []
+        self.data = []
 
         for permission in self.security_group.ip_permissions:
             self.add_edges_from_permission(self.incoming_edges, permission)
@@ -284,7 +316,7 @@ class SecurityGroupMapNode(object):
             raise Exception
 
     def add_data(self, data):
-        pdb.set_trace()
+        self.data.append(data)
 
 
 class SecurityGroupsMap(object):
@@ -298,11 +330,38 @@ class SecurityGroupsMap(object):
         self.nodes[node.security_group.id] = node
 
     def add_node_data(self, security_group_id, data):
-        self.nodes[security_group_id].add_data(data)
+        try:
+            self.nodes[security_group_id].add_data(data)
+        except Exception as e:
+            print("todo: remove ' def add_node_data'")
+
+    def find_outgoing_paths(self, sg_id, seen_grps=None):
+        if seen_grps is None:
+            seen_grps = []
+        pdb.set_trace()
+
+    def apply_dst_h_flow_filter(self, h_flow):
+        node = self.nodes[h_flow.end_point_src.custom["security_group_id"]]
+        return self.recursive_apply_dst_h_flow_filter(node, [], [])
+
+    def recursive_apply_dst_h_flow_filter(self, node, lst_path, lst_seen):
+        if node.security_group.id in lst_seen:
+            pdb.set_trace()
+            raise Exception("todo: loop")
+        lst_seen.append(node.security_group.id)
+        lst_path.append(node.security_group.id)
+        for edge in node.outgoing_edges:
+            if edge.type == SecurityGroupMapEdge.Type.IP:
+                lst_path.append(edge.dst)
+                return lst_path
+            elif edge.type == SecurityGroupMapEdge.Type.SECURITY_GROUP:
+                return self.recursive_apply_dst_h_flow_filter(self.nodes[edge.dst], lst_path, [])
+            else:
+                pdb.set_trace()
+                raise NotImplementedError
 
 
 class AWSAPI(object):
-
     def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
         self.aws_key_id = aws_key_id
         self.aws_access_secret = aws_access_secret
@@ -449,12 +508,43 @@ class AWSAPI(object):
 
     def cleanup_report(self):
         # todo: check lambda cost vs instance
+        ret = self.cleanup_target_groups()
+        pdb.set_trace()
+        ret = self.cleanup_report_ec2_paths()
+        pdb.set_trace()
         ret = self.cleanup_report_security_groups()
         ret = self.cleanup_report_dns_records()
+
         return ret
+
+    def cleanup_target_groups(self):
+        lst_ret = []
+        for target_group in self.target_groups:
+            if not target_group.target_health:
+                lst_ret.append(target_group)
+                #print("{} - target group has no targets".format(target_group.name))
+        return lst_ret
+
+    def cleanup_report_ec2_paths(self):
+        sg_map = self.prepare_security_groups_mapping()
+        for ec2_instace in self.ec2_instances:
+            ret = self.find_ec2_instance_outgoing_paths(ec2_instace, sg_map)
+
+    def find_ec2_instance_outgoing_paths(self, ec2_instace, sg_map):
+        for grp in ec2_instace.security_groups:
+            paths = sg_map.find_outgoing_paths(grp["GroupId"])
+            pdb.set_trace()
 
     def cleanup_report_security_groups(self):
         sg_map = self.prepare_security_groups_mapping()
+        self.ec2_client.connect()
+        for sg_id, node in sg_map.nodes.items():
+            if len(node.data) == 0:
+                sg = CommonUtils.find_objects_by_values(self.security_groups, {"id": sg_id}, max_count=1)
+                lst_inter = self.ec2_client.execute(self.ec2_client.client.describe_network_interfaces, "NetworkInterfaces", filters_req={"Filters": [{"Name": "group-id", "Values": [sg_id]}]})
+                if lst_inter:
+                    pdb.set_trace()
+                print("{}:{}:{}".format(sg_id, sg[0].name, lst_inter))
 
     def prepare_security_groups_mapping(self):
         sg_map = SecurityGroupsMap()
@@ -463,37 +553,73 @@ class AWSAPI(object):
             sg_map.add_node(node)
 
         for ec2_instance in self.ec2_instances:
-            sg_ids = ec2_instance.get_security_groups_endpoints()
-            for sg_id in sg_ids:
-                sg_map.add_node_data(sg_id, ec2_instance)
-
-        for lb in self.load_balancers:
-            sg_ids = lb.get_security_groups_endpoints()
-            for sg_id in sg_ids:
-                continue
-                sg_map.add_node_data(sg_id, lb)
-
-        for rds in self.databases:
-            endpoints = rds.get_security_groups_endpoints()
-            for endpoint in endpoints:
+            for endpoint in ec2_instance.get_security_groups_endpoints():
                 sg_map.add_node_data(endpoint["sg_id"], endpoint)
 
-        pdb.set_trace()
+        for lb in self.load_balancers:
+            for endpoint in lb.get_security_groups_endpoints():
+                sg_map.add_node_data(endpoint["sg_id"], endpoint)
 
+        for rds in self.databases:
+            for endpoint in rds.get_security_groups_endpoints():
+                sg_map.add_node_data(endpoint["sg_id"], endpoint)
+
+        return sg_map
 
     def cleanup_report_dns_records(self):
         dns_map = self.prepare_hosted_zones_mapping()
         return ret
 
-    def h_flow_calc(self):
-        dns_map = self.prepare_hosted_zones_mapping()
+    def get_ec2_instances_h_flow_destinations(self):
+        sg_map = self.prepare_security_groups_mapping()
+        total_count = 0
+        for ec2_instance in self.ec2_instances:
+            for endpoint in ec2_instance.get_security_groups_endpoints():
+                hflow = HFlow()
+                tunnel = hflow.Tunnel()
 
-        hflow = HFlow()
-        tunnel = IPTunnel()
-        tunnel.src = IP()
-        tunnel.dst = DNS()
-        tunnel.dst
-        hflow.tunnels.append(tunnel)
+                end_point_src = hflow.EndPoint()
+                if "ip" not in endpoint:
+                    print("ec2_instance: {} ip not in interface: {}/{}".format(ec2_instance.name, endpoint["device_name"], endpoint["device_id"]))
+                    continue
+                end_point_src.ip = IP(endpoint["ip"])
+                tunnel.ip_src = IP(endpoint["ip"])
 
+                if "dns" in endpoint:
+                    #print("ec2_instance: {} dns not in interface: {}/{}".format(ec2_instance.name, endpoint["device_name"], endpoint["device_id"]))
+                    end_point_src.dns = DNS(endpoint["dns"])
+                    tunnel.dns_src = DNS(endpoint["dns"])
+
+                end_point_src.add_custom("security_group_id", endpoint["sg_id"])
+
+                hflow.end_point_src = end_point_src
+
+                end_point_dst = hflow.EndPoint()
+                hflow.end_point_dst = end_point_dst
+
+                hflow.tunnel = tunnel
+                lst_flow = sg_map.apply_dst_h_flow_filter(hflow)
+                lst_resources = self.find_resources_by_ip(lst_flow[-1])
+                pdb.set_trace()
+                total_count += 1
+                print("{}: {}".format(len(lst_flow), lst_flow))
+
+                #pdb.set_trace()
+
+        print("Total hflows count: {}".format(total_count))
         pdb.set_trace()
         self.find_end_point_by_dns()
+
+    def find_resources_by_ip(self, ip_addr):
+        lst_ret = self.find_ec2_instances_by_ip(ip_addr)
+        lst_ret += self.find_loadbalancers_by_ip(ip_addr)
+        lst_ret += self.find_rdss_by_ip(ip_addr)
+        lst_ret += self.find_elastic_searches_by_ip(ip_addr)
+        return lst_ret
+
+    def find_ec2_instances_by_ip(self, ip_addr):
+        for ec2_instance in self.ec2_instances:
+            lst_ips = ec2_instance.get_all_ips()
+            for x in lst_ips:
+                print(x)
+            pdb.set_trace()

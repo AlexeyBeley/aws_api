@@ -105,14 +105,17 @@ class EC2Instance(AwsObject):
 
         return ret
 
+    def get_all_ips(self):
+        return [IP(ep["ip"], int_mask=32) for ep in self.get_security_groups_endpoints()]
+
     def get_security_groups_endpoints(self):
         lst_ret = []
-
         for inter in self.network_interfaces:
             lst_ret_inter = inter.get_security_groups_endpoints()
             for ret_inter in lst_ret_inter:
                 ret_inter["service_name"] = "EC2"
                 ret_inter["device_name"] = self.name
+                ret_inter["device_id"] = self.id
                 lst_ret.append(ret_inter)
 
         return lst_ret
@@ -170,14 +173,35 @@ class EC2Instance(AwsObject):
 
         def get_security_groups_endpoints(self):
             lst_ret = []
+
             all_addresses = []
             for sec_grp in self.groups:
                 for dict_addr in self.private_ip_addresses:
+                    # Public
+                    description = "Inteface: SubnetId: {} NetworkInterfaceId: {}- '{}'".format(
+                        self.subnet_id, self.id, self.description)
+                    dict_ret = {"sg_id": sec_grp["GroupId"], "sg_name": sec_grp["GroupName"], "description": description}
                     if "Association" in dict_addr:
                         all_addresses.append(dict_addr["Association"]["PublicIp"])
+                        dict_ret["ip"] = dict_addr["Association"]["PublicIp"]
+                        dict_ret["dns"] = dict_addr["Association"]["PublicDnsName"]
+
+                    lst_ret.append(dict_ret)
+
+                    # Private
+                    dict_ret = {"sg_id": sec_grp["GroupId"], "sg_name": sec_grp["GroupName"], "description": description}
                     all_addresses.append(dict_addr["PrivateIpAddress"])
+                    dict_ret["ip"] = dict_addr["PrivateIpAddress"]
+                    if "PrivateDnsName" in dict_addr:
+                        dict_ret["dns"] = dict_addr["PrivateDnsName"]
+
+                    lst_ret.append(dict_ret)
+
                 if self.private_ip_address.str_address not in all_addresses:
                     raise Exception
+
+                if self.dict_src["Ipv6Addresses"]:
+                    pdb.set_trace()
 
                 for dict_addr in self.ipv6_addresses:
                     pdb.set_trace()

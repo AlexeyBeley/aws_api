@@ -38,9 +38,8 @@ class ELBV2Client(Boto3Client):
             final_result.append(obj)
 
             if full_information:
-                pass
-                # update_info = self.execute("get_bucket_acl", "Grants", filters_req={"Bucket": obj.name})
-                # obj.update_acl(update_info)
+                update_info = self.execute(self.client.describe_target_health, "TargetHealthDescriptions", filters_req={"TargetGroupArn": obj.arn})
+                obj.update_target_health(update_info)
                 # update_info = self.execute("get_bucket_policy", "Policy", filters_req={"Bucket": "checkout-plugins-public"})
                 # obj.update_policy(update_info)
 
