@@ -231,7 +231,8 @@ class HFlow(object):
                 return "[ip:{} , dns:{} , service:{} -> ip:{} , dns:{} , service:{}]".format(self.ip_src, self.dns_src, self.service_src, self.ip_dst, self.dns_dst, self.service_dst)
 
             def apply_dst_filter(self, h_filter):
-                
+                pdb.set_trace()
+
                 traffic_start = self.copy()
                 traffic_start.ip_src = ip_src
                 traffic_start.dns_src = dns_src
@@ -527,20 +528,20 @@ class SecurityGroupMapNode(object):
                 for edge in self.outgoing_edges:
                     if edge.type is SecurityGroupMapEdge.Type.IP:
 
-                        h_filter = HFlowFilter()
-                        #HFlow.Tunnel.Traffic()
+                        h_filter = HFlow.Tunnel.Traffic()
+
                         h_filter.info = [data_unit, edge]
 
-                        h_filter.src.dns = data_unit["dns"]
+                        h_filter.dns_src = data_unit["dns"]
                         if "ip" not in data_unit:
                             ip = AWSAPI.find_ips_from_dns(h_filter.src.dns)
                         else:
                             ip = data_unit["ip"]
 
-                        h_filter.src.ip = ip
+                        h_filter.ip_src = ip
 
-                        h_filter.dst.ip = edge.dst
-                        h_filter.dst.service = edge.service
+                        h_filter.ip_dst = edge.dst
+                        h_filter.service_dst = edge.service
 
                         lst_filters.append(h_filter)
                     else:
