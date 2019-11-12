@@ -135,8 +135,6 @@ class HFlow(object):
 
     def apply_dst_filter_on_start(self, h_filter):
         lst_ret = []
-        lst_ips_dst = []
-        lst_services_dst = []
 
         for traffic_start, traffic_end in self.tunnel.traffic_start.apply_dst_filter(h_filter):
             h_flow_ret = HFlow()
@@ -232,6 +230,7 @@ class HFlow(object):
 
             def apply_dst_filter(self, h_filter):
                 pdb.set_trace()
+                ip_intersect = h_filter.ip_src.intersect(self.ip_src)
 
                 traffic_start = self.copy()
                 traffic_start.ip_src = ip_src
