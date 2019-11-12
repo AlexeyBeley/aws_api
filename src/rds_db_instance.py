@@ -1,13 +1,13 @@
 import pdb
 
-import json
+import socket
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 
 from aws_object import AwsObject
-
+from ip import IP
 
 class DBInstance(AwsObject):
     def __init__(self, dict_src, from_cache=False):
@@ -99,6 +99,7 @@ class DBInstance(AwsObject):
             endpoint = {"sg_id": sg["VpcSecurityGroupId"]}
             endpoint["dns"] = self.endpoint["Address"]
             endpoint["port"] = self.endpoint["Port"]
+
             endpoint["description"] = "rds: {}".format(self.name)
             ret.append(endpoint)
 

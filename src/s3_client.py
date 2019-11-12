@@ -17,11 +17,12 @@ class S3Client(Boto3Client):
             final_result.append(obj)
 
             if full_information:
-                update_info = self.execute(self.client.get_bucket_acl, "Grants", filters_req={"Bucket": obj.name})
+                update_info = list(self.execute(self.client.get_bucket_acl, "Grants", filters_req={"Bucket": obj.name}))
                 obj.update_acl(update_info)
+
                 try:
-                    update_info = self.execute(self.client.get_bucket_policy, "Policy", filters_req={"Bucket": obj.name})
-                    obj.update_policy(update_info)
+                    for update_info in self.execute(self.client.get_bucket_policy, "Policy", filters_req={"Bucket": obj.name}):
+                        obj.update_policy(update_info)
                 except Exception as inst:
                     if "NoSuchBucketPolicy" not in repr(inst):
                         raise

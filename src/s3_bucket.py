@@ -34,7 +34,10 @@ class S3Bucket(AwsObject):
 
         self._init_from_cache(dict_src, options)
 
-    def _init_acl_from_cache(self, key, dict_src):
+    def _init_acl_from_cache(self, _, dict_src):
+        if dict_src is None:
+            return
+
         if self.acl is None:
             self.acl = S3Bucket.ACL(dict_src, from_cache=True)
         else:
@@ -47,28 +50,35 @@ class S3Bucket(AwsObject):
         if dict_src is not None:
             self.policy = S3Bucket.Policy(dict_src, from_cache=True)
 
-    def update_acl(self, dict_src):
+    def update_acl(self, lst_src):
         if self.acl is None:
-            self.acl = S3Bucket.ACL(dict_src)
+            self.acl = S3Bucket.ACL(lst_src)
         else:
             raise NotImplementedError
 
-    def update_policy(self, dict_src):
+    def update_policy(self, str_src):
         if self.policy is None:
-            self.policy = S3Bucket.Policy(dict_src)
+            self.policy = S3Bucket.Policy(str_src)
         else:
             raise NotImplementedError
 
     class ACL(AwsObject):
-        def __init__(self, lst_src, from_cache=False):
-            super(S3Bucket.ACL, self).__init__(lst_src)
+        def __init__(self, src_data, from_cache=False):
+            super(S3Bucket.ACL, self).__init__(src_data)
             self.grants = []
 
             if from_cache:
-                self._init_acl_from_cache(lst_src)
+                if type(src_data) is not dict:
+                    pdb.set_trace()
+                    raise TypeError
+                self._init_acl_from_cache(src_data)
                 return
 
-            for dict_grant in lst_src:
+            if type(src_data) is not list:
+                pdb.set_trace()
+                raise TypeError
+
+            for dict_grant in src_data:
                 grant = self.Grant(dict_grant)
                 self.grants.append(grant)
 
@@ -111,8 +121,11 @@ class S3Bucket(AwsObject):
             if type(src_) is str:
                 dict_src = json.loads(src_)
             else:
-                self._init_policy_from_cashe(src_)
-                return
+                if from_cache:
+                    self._init_policy_from_cashe(src_)
+                    return
+                else:
+                    raise NotImplementedError
 
             super(S3Bucket.Policy, self).__init__(dict_src)
             if from_cache:

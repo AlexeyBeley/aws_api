@@ -31,12 +31,8 @@ class HostedZone(AwsObject):
         options = {"records": self._init_records_from_cache}
         self._init_from_cache(dict_src, options)
 
-    def update_record_set(self, lst_src):
-        if self.records:
-            raise NotImplementedError
-        else:
-            for record in lst_src:
-                self.records.append(self.Record(record))
+    def update_record_set(self, dict_src):
+        self.records.append(self.Record(dict_src))
 
     def _init_records_from_cache(self, key, lst_src):
         if self.records:
