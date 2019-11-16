@@ -67,7 +67,5 @@ class LoadBalancer(AwsObject):
 
         return ret
 
-    def get_all_ips(self):
-        lst_ret = []
-        pdb.set_trace()
-        return lst_ret
+    def get_all_addresses(self):
+        return [self.dns_name]

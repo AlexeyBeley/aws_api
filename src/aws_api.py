@@ -32,6 +32,7 @@ from iam_user import IamUser
 
 from common_utils import CommonUtils
 from collections import defaultdict
+from dns import DNS
 
 
 class Service(object):
@@ -338,25 +339,6 @@ class TextBlock(object):
         self.footer = []
 
 
-class DNS(object):
-    def __init__(self, fqdn):
-        self.fqdn = fqdn
-
-    def __str__(self):
-        return self.fqdn
-
-    def __eq__(self, other):
-        if not isinstance(other, DNS):
-            return False
-        if self.fqdn != other.fqdn:
-            return False
-
-        return True
-
-    def copy(self):
-        return DNS(self.fqdn)
-
-
 class DNSMapNode(object):
     POINTER = "pointer"
     RESOURCE = "res"
@@ -570,7 +552,7 @@ class SecurityGroupMapNode(object):
 
                         h_filter.dns_src = DNS(data_unit["dns"])
                         if "ip" not in data_unit:
-                            ip = AWSAPI.find_ips_from_dns(h_filter.dns_src)
+                            ip = AWSAPI.find_ips_from_dns(h_filter.dns_src)[0]
                         else:
                             ip = data_unit["ip"]
 
@@ -716,7 +698,7 @@ class AWSAPI(object):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, EC2Instance)
         else:
-            objects = self.ec2_client.get_all_instances()
+            objects = self.ec2_client.get_allget_all_instances()
 
         self.ec2_instances = objects
 
@@ -997,13 +979,23 @@ class AWSAPI(object):
     def find_loadbalancers_by_ip(self, ip_addr):
         lst_ret = []
 
-        for obj in self.load_balancers:
-            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in obj.get_all_ips()):
-                lst_ret.append(obj)
+        for obj in self.load_balancers + self.classic_load_balancers:
+            for addr in obj.get_all_addresses():
+                if isinstance(addr, IP):
+                    lst_addr = [addr]
+                elif isinstance(addr, DNS):
+                    lst_addr = AWSAPI.find_ips_from_dns(addr)
+                else:
+                    raise ValueError
 
-        for obj in self.classic_load_balancers:
-            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in obj.get_all_ips()):
-                lst_ret.append(obj)
+                for lb_ip_addr in lst_addr:
+                    if ip_addr.intersect(lb_ip_addr):
+                        lst_ret.append(obj)
+                        break
+                else:
+                    continue
+
+                break
 
         return lst_ret
 
@@ -1018,7 +1010,8 @@ class AWSAPI(object):
     def find_ips_from_dns(dns):
         print("todo: init address from dns: {}".format(dns))
         ip = IP("1.1.1.1/32")
-        return ip
+        return [ip]
+
         try:
             addr_info_lst = socket.getaddrinfo(dns, None)
         except socket.gaierror as e:
