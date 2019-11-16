@@ -17,8 +17,8 @@ class Route53Client(Boto3Client):
             obj = HostedZone(response)
 
             if full_information:
-                update_info = self.execute(self.client.list_resource_record_sets, "ResourceRecordSets", filters_req={"HostedZoneId": obj.id})
-                obj.update_record_set(update_info)
+                for update_info in self.execute(self.client.list_resource_record_sets, "ResourceRecordSets", filters_req={"HostedZoneId": obj.id}):
+                    obj.update_record_set(update_info)
 
             final_result.append(obj)
             # import pprint

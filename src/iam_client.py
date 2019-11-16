@@ -21,8 +21,7 @@ class IamClient(Boto3Client):
             final_result.append(user)
 
         if full_information:
-            response = self.execute(self.client.get_account_authorization_details, "UserDetailList")
-            for update_info in response:
+            for update_info in self.execute(self.client.get_account_authorization_details, "UserDetailList"):
                 user = CommonUtils.find_objects_by_values(final_result, {"id": update_info["UserId"]}, max_count=1)[0]
                 user.update_attributes(update_info)
 
@@ -38,9 +37,8 @@ class IamClient(Boto3Client):
         :param policy: The IamPolicy obj
         :return: None, raise if fails
         """
-        # response = self.client.get_policy_version(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy', VersionId=policy.default_version_id)
-        response = self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id})
-        policy.update_statements(response)
+        for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
+            policy.update_statements(response)
 
     @Boto3Client.requires_connection
     def get_all_access_keys(self):
@@ -62,44 +60,6 @@ class IamClient(Boto3Client):
 
     @Boto3Client.requires_connection
     def get_all_policies(self, full_inforamtion=True):
-        """
-        response = self.client.get_policy_version(PolicyArn=policy.arn)
-
-        response = client.list_entities_for_policy(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy')
-
-        #ret = self.client.get_account_authorization_details()
-        #for usr_det in ret["UserDetailList"]: print(usr_det)
-        response = self.client.get_role(RoleName='configs-getter-production-role')
-        response["Role"]
-        client = self.client
-        response = self.client.list_roles()
-        response["Roles"]
-        response = client.list_instance_profiles_for_role(RoleName='configs-getter-production-role')
-        response["InstanceProfiles"]
-
-        # get role attached to policy
-        response = client.list_entities_for_policy(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy')
-        response["PolicyRoles"][0]["RoleName"]
-        response["PolicyRoles"][0]["RoleId"]
-
-
-        #AttachmentCount - how many attached entities
-        response = client.get_policy(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy')
-        response["Policy"]
-
-
-        for result in self.client.get_role_policy(RoleName='xl-writer-unauth-testing',PolicyName=''): lst_ret.append(result)
-
-
-        pdb.set_trace()
-        response = client.get_role_policy(
-            RoleName='string',
-            PolicyName='string'
-        )
-
-        return final_result
-        :return:
-        """
         final_result = list()
 
         for result in self.execute(self.client.list_policies, "Policies"):
@@ -117,6 +77,5 @@ class IamClient(Boto3Client):
         :param policy: The IamPolicy obj
         :return: None, raise if fails
         """
-        # response = self.client.get_policy_version(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy', VersionId=policy.default_version_id)
-        response = self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id})
-        policy.update_statements(response)
+        for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
+            policy.update_statements(response)

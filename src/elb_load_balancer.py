@@ -1,6 +1,4 @@
-import pdb
-
-import json
+from dns import DNS
 import sys
 import os
 
@@ -47,3 +45,6 @@ class ClassicLoadBalancer(AwsObject):
         ret = [self.dns_name] if self.dns_name else []
 
         return ret
+
+    def get_all_addresses(self):
+        return [DNS(self.dns_name)]

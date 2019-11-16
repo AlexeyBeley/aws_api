@@ -38,8 +38,15 @@ class ELBV2Client(Boto3Client):
             final_result.append(obj)
 
             if full_information:
-                update_info = self.execute(self.client.describe_target_health, "TargetHealthDescriptions", filters_req={"TargetGroupArn": obj.arn})
-                obj.update_target_health(update_info)
+                try:
+                    for update_info in self.execute(self.client.describe_target_health, "TargetHealthDescriptions", filters_req={"TargetGroupArn": obj.arn}):
+                        obj.update_target_health(update_info)
+                except Exception as inst:
+                    print(response)
+                    str_repr = repr(inst)
+                    print(str_repr)
+                    pdb.set_trace()
+
                 # update_info = self.execute("get_bucket_policy", "Policy", filters_req={"Bucket": "checkout-plugins-public"})
                 # obj.update_policy(update_info)
 

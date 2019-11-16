@@ -106,7 +106,7 @@ class EC2Instance(AwsObject):
         return ret
 
     def get_all_ips(self):
-        return [IP(ep["ip"], int_mask=32) for ep in self.get_security_groups_endpoints()]
+        return [end_point["ip"].copy() for end_point in self.get_security_groups_endpoints()]
 
     def get_security_groups_endpoints(self):
         lst_ret = []
@@ -183,15 +183,14 @@ class EC2Instance(AwsObject):
                     dict_ret = {"sg_id": sec_grp["GroupId"], "sg_name": sec_grp["GroupName"], "description": description}
                     if "Association" in dict_addr:
                         all_addresses.append(dict_addr["Association"]["PublicIp"])
-                        dict_ret["ip"] = dict_addr["Association"]["PublicIp"]
+                        dict_ret["ip"] = IP(dict_addr["Association"]["PublicIp"], int_mask=32)
                         dict_ret["dns"] = dict_addr["Association"]["PublicDnsName"]
-
-                    lst_ret.append(dict_ret)
+                        lst_ret.append(dict_ret)
 
                     # Private
                     dict_ret = {"sg_id": sec_grp["GroupId"], "sg_name": sec_grp["GroupName"], "description": description}
                     all_addresses.append(dict_addr["PrivateIpAddress"])
-                    dict_ret["ip"] = dict_addr["PrivateIpAddress"]
+                    dict_ret["ip"] = IP(dict_addr["PrivateIpAddress"], int_mask=32)
                     if "PrivateDnsName" in dict_addr:
                         dict_ret["dns"] = dict_addr["PrivateDnsName"]
 
