@@ -1,10 +1,8 @@
 import json
 import pdb
 import os
-import sys
 import socket
 
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 from enum import Enum
 from ip import IP
 
@@ -56,8 +54,13 @@ class Service(object):
     def copy(self):
         if self is self.any():
             return self.any()
-        pdb.set_trace()
+
         raise NotImplementedError
+
+    def intersect(self, other):
+        if not isinstance(other, Service):
+            raise ValueError
+        pdb.set_trace()
 
 
 class ServiceTCP(Service):
@@ -125,18 +128,20 @@ class HFlow(object):
     def apply_dst_filters_on_start(self, h_filters):
         lst_ret = []
         for h_filter in h_filters:
-            print("{}:{}".format(h_filter.info[0], h_filter.info[1]))
+            #print("{}:{}".format(h_filter.info[0], h_filter.info[1]))
             lst_ret += self.apply_dst_filter_on_start(h_filter)
 
-        for x in lst_ret:
-            print(x)
-        pdb.set_trace()
+        #for x in lst_ret:
+        #    print(x)
         return lst_ret
 
     def apply_dst_filter_on_start(self, h_filter):
         lst_ret = []
 
         for traffic_start, traffic_end in self.tunnel.traffic_start.apply_dst_filter(h_filter):
+            if traffic_start is None or traffic_end is None:
+                continue
+
             h_flow_ret = HFlow()
             h_flow_ret.end_point_src = self.end_point_src
             h_flow_ret.end_point_dst = self.end_point_dst
@@ -228,26 +233,47 @@ class HFlow(object):
             def __str__(self):
                 return "[ip:{} , dns:{} , service:{} -> ip:{} , dns:{} , service:{}]".format(self.ip_src, self.dns_src, self.service_src, self.ip_dst, self.dns_dst, self.service_dst)
 
+            def intersect(self, self_end_point, other_end_point):
+                if self_end_point is self.any():
+                    return other_end_point
+                return self_end_point.intersect(other_end_point)
+
             def apply_dst_filter(self, h_filter):
-                pdb.set_trace()
-                ip_intersect = h_filter.ip_src.intersect(self.ip_src)
+                ip_src_intersect = self.intersect(self.ip_src, h_filter.ip_src)
+                if ip_src_intersect is None:
+                    return []
+
+                service_src_intersect = self.intersect(self.service_src, h_filter.service_src)
+                if service_src_intersect is None:
+                    return []
+
+                ip_dst_intersect = self.intersect(self.ip_dst, h_filter.ip_dst)
+                if ip_dst_intersect is None:
+                    return []
+
+                service_dst_intersect = self.intersect(self.service_dst, h_filter.service_dst)
+                if service_dst_intersect is None:
+                    return []
 
                 traffic_start = self.copy()
-                traffic_start.ip_src = ip_src
-                traffic_start.dns_src = dns_src
-                traffic_start.service_src = service_src
+                traffic_start.ip_src = ip_src_intersect
+                traffic_start.service_src = service_src_intersect
+
+                if h_filter.dns_src != self.dns_src:
+                    raise NotImplementedError
+
+                if h_filter.dns_dst != self.dns_dst:
+                    raise NotImplementedError
 
                 traffic_end = HFlow.Tunnel.Traffic()
-
                 traffic_end.ip_src = traffic_start.ip_src
                 traffic_end.dns_src = traffic_start.dns_src
                 traffic_end.service_src = traffic_start.service_src
 
-                traffic_end.ip_dst = ip_dst
-                traffic_end.dns_dst = dns_dst
-                traffic_end.service_dst = service_dst
-
-                return traffic_start, traffic_end
+                traffic_end.ip_dst = ip_dst_intersect
+                traffic_end.dns_dst = traffic_start.dns_dst
+                traffic_end.service_dst = service_dst_intersect
+                return [(traffic_start, traffic_end)]
 
             def copy(self):
                 ret = HFlow.Tunnel.Traffic()
@@ -284,6 +310,9 @@ class HFlow(object):
                 def copy(self):
                     return HFlow.Tunnel.Traffic.ANY
 
+                def intersect(self, other):
+                    return other
+
         def copy(self, copy_src_traffic_to_dst=False):
             ret = HFlow.Tunnel()
             ret.traffic_start = self.traffic_start.copy()
@@ -315,6 +344,14 @@ class DNS(object):
 
     def __str__(self):
         return self.fqdn
+
+    def __eq__(self, other):
+        if not isinstance(other, DNS):
+            return False
+        if self.fqdn != other.fqdn:
+            return False
+
+        return True
 
     def copy(self):
         return DNS(self.fqdn)
@@ -531,9 +568,9 @@ class SecurityGroupMapNode(object):
 
                         h_filter.info = [data_unit, edge]
 
-                        h_filter.dns_src = data_unit["dns"]
+                        h_filter.dns_src = DNS(data_unit["dns"])
                         if "ip" not in data_unit:
-                            ip = AWSAPI.find_ips_from_dns(h_filter.src.dns)
+                            ip = AWSAPI.find_ips_from_dns(h_filter.dns_src)
                         else:
                             ip = data_unit["ip"]
 
@@ -642,7 +679,6 @@ class SecurityGroupsMap(object):
         lst_path.append(node.security_group.id)
         for edge in node.outgoing_edges:
             if edge.type == SecurityGroupMapEdge.Type.IP:
-                pdb.set_trace()
                 lst_h_flows = h_flow.apply_dst_filters_on_start(node.h_flow_filters_dst)
 
                 lst_path.append(edge.dst)
@@ -942,23 +978,46 @@ class AWSAPI(object):
         lst_ret += self.find_elastic_searches_by_ip(ip_addr)
         return lst_ret
 
+    def find_elastic_searches_by_ip(self, ip_addr):
+        raise NotImplementedError
+        lst_ret = []
+        for ec2_instance in self.ec2_instances:
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_ips()):
+                lst_ret.append(ec2_instance)
+        return lst_ret
+
+    def find_rdss_by_ip(self, ip_addr):
+        raise NotImplementedError
+        lst_ret = []
+        for ec2_instance in self.ec2_instances:
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_ips()):
+                lst_ret.append(ec2_instance)
+        return lst_ret
+
+    def find_loadbalancers_by_ip(self, ip_addr):
+        lst_ret = []
+
+        for obj in self.load_balancers:
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in obj.get_all_ips()):
+                lst_ret.append(obj)
+
+        for obj in self.classic_load_balancers:
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in obj.get_all_ips()):
+                lst_ret.append(obj)
+
+        return lst_ret
+
     def find_ec2_instances_by_ip(self, ip_addr):
         lst_ret = []
         for ec2_instance in self.ec2_instances:
-            lst_ips = ec2_instance.get_all_ips()
-
-            for x in lst_ips:
-                print(x)
-                ip_intersect = ip_addr.intersect(x)
-                if ip_intersect is not None:
-                    lst_ret.append(ec2_instance)
-                    break
-            pdb.set_trace()
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_ips()):
+                lst_ret.append(ec2_instance)
+        return lst_ret
 
     @staticmethod
     def find_ips_from_dns(dns):
         print("todo: init address from dns: {}".format(dns))
-        ip = IP("1.1.1.1")
+        ip = IP("1.1.1.1/32")
         return ip
         try:
             addr_info_lst = socket.getaddrinfo(dns, None)

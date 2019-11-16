@@ -66,3 +66,8 @@ class LoadBalancer(AwsObject):
             ret.append(endpoint)
 
         return ret
+
+    def get_all_ips(self):
+        lst_ret = []
+        pdb.set_trace()
+        return lst_ret

@@ -37,7 +37,6 @@ class IamClient(Boto3Client):
         :param policy: The IamPolicy obj
         :return: None, raise if fails
         """
-        # response = self.client.get_policy_version(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy', VersionId=policy.default_version_id)
         for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
             policy.update_statements(response)
 
@@ -78,6 +77,5 @@ class IamClient(Boto3Client):
         :param policy: The IamPolicy obj
         :return: None, raise if fails
         """
-        # response = self.client.get_policy_version(PolicyArn='arn:aws:iam::919141998999:policy/configs-getter-production-role-policy', VersionId=policy.default_version_id)
         for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
             policy.update_statements(response)

@@ -106,7 +106,7 @@ class EC2Instance(AwsObject):
         return ret
 
     def get_all_ips(self):
-        return [IP(ep["ip"], int_mask=32) for ep in self.get_security_groups_endpoints()]
+        return [end_point["ip"].copy() for end_point in self.get_security_groups_endpoints()]
 
     def get_security_groups_endpoints(self):
         lst_ret = []
