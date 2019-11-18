@@ -104,3 +104,6 @@ class DBInstance(AwsObject):
             ret.append(endpoint)
 
         return ret
+
+    def get_all_addresses(self):
+        return [self.endpoint["Address"]]

@@ -9,6 +9,7 @@ from ip import IP
 from ec2_client import EC2Client
 from ec2_instance import EC2Instance
 from ec2_security_group import EC2SecurityGroup
+from ec2_vpc_subnet import EC2VPCSubnet
 
 from s3_client import S3Client
 from s3_bucket import S3Bucket
@@ -766,6 +767,14 @@ class AWSAPI(object):
 
         self.target_groups = objects
 
+    def init_vpc_subnets(self, from_cache=False, cache_file=None, full_information=False):
+        if from_cache:
+            pdb.set_trace()
+            objects = self.load_objects_from_cache(cache_file, EC2VPCSubnet)
+        else:
+            objects = self.ec2_client.get_all_vpc_subnets(full_information=full_information)
+        self.security_groups = objects
+
     def init_security_groups(self, from_cache=False, cache_file=None, full_information=False):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, EC2SecurityGroup)
@@ -969,11 +978,27 @@ class AWSAPI(object):
         return lst_ret
 
     def find_rdss_by_ip(self, ip_addr):
-        raise NotImplementedError
         lst_ret = []
-        for ec2_instance in self.ec2_instances:
-            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_ips()):
-                lst_ret.append(ec2_instance)
+
+        for obj in self.databases:
+            for addr in obj.get_all_addresses():
+                if isinstance(addr, IP):
+                    lst_addr = [addr]
+                elif isinstance(addr, DNS):
+                    pdb.set_trace()
+                    lst_addr = AWSAPI.find_ips_from_dns(addr)
+                else:
+                    raise ValueError
+
+                for lb_ip_addr in lst_addr:
+                    if ip_addr.intersect(lb_ip_addr):
+                        lst_ret.append(obj)
+                        break
+                else:
+                    continue
+
+                break
+
         return lst_ret
 
     def find_loadbalancers_by_ip(self, ip_addr):
@@ -984,6 +1009,7 @@ class AWSAPI(object):
                 if isinstance(addr, IP):
                     lst_addr = [addr]
                 elif isinstance(addr, DNS):
+                    pdb.set_trace()
                     lst_addr = AWSAPI.find_ips_from_dns(addr)
                 else:
                     raise ValueError
@@ -1007,15 +1033,27 @@ class AWSAPI(object):
         return lst_ret
 
     @staticmethod
-    def find_ips_from_dns(dns):
-        print("todo: init address from dns: {}".format(dns))
-        ip = IP("1.1.1.1/32")
-        return [ip]
+    def cache_dns_addresses(dns, ips):
+        print("Todo: Cache ips {}".format(dns.fqdn))
 
+    @staticmethod
+    def find_ips_from_dns(dns):
         try:
-            addr_info_lst = socket.getaddrinfo(dns, None)
+            addr_info_lst = socket.getaddrinfo(dns.fqdn, None)
+            addresses = [pair[4][0] for pair in addr_info_lst]
+            addresses = set(addresses)
+            addresses = [IP("{}/32".format(address)) for address in addresses]
+            AWSAPI.cache_dns_addresses(dns, addresses)
+            return addresses
         except socket.gaierror as e:
-            raise Exception("Can't find address from socket")
+            #raise Exception("Can't find address from socket")
+            #pdb.set_trace()
+
+            print("todo: init address from dns: {}".format(dns))
+            ip = IP("1.1.1.1/32")
+            return [ip]
+
+        raise Exception
 
         addresses = {addr_info[4][0] for addr_info in addr_info_lst}
         addresses = {IP(address, int_mask=32) for address in addresses}

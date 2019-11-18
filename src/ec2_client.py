@@ -1,5 +1,6 @@
 import pdb
 from ec2_instance import EC2Instance
+from ec2_vpc_subnet import EC2VPCSubnet
 from ec2_security_group import EC2SecurityGroup
 from boto3_client import Boto3Client
 
@@ -16,6 +17,18 @@ class EC2Client(Boto3Client):
             final_result.extend(instance['Instances'])
 
         return [EC2Instance(instance) for instance in final_result]
+
+    @Boto3Client.requires_connection
+    def get_all_vpc_subnets(self, full_information=False):
+        final_result = list()
+        for ret in self.execute(self.client.describe_subnets, "Subnets"):
+            obj = EC2VPCSubnet(ret)
+            if full_information is True:
+                raise NotImplementedError
+
+            final_result.append(obj)
+
+        return final_result
 
     @Boto3Client.requires_connection
     def get_all_security_groups(self, full_information=False):

@@ -1,10 +1,4 @@
-import pdb
-
-import json
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
+from dns import DNS
 
 from aws_object import AwsObject
 
@@ -68,4 +62,4 @@ class LoadBalancer(AwsObject):
         return ret
 
     def get_all_addresses(self):
-        return [self.dns_name]
+        return [DNS(self.dns_name)]
