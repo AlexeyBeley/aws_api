@@ -11,6 +11,31 @@ class EC2Client(Boto3Client):
         super(EC2Client, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
 
     @Boto3Client.requires_connection
+    def get_ec2_instance_by_ids(self, ids):
+        """
+        Getting EC2 Instance by their ID.
+        :return: list with all EC2.
+        :rtype list[EC2Instance]
+        Note: returning only the Instances information (unlike AWSToolsBoto3 version).
+        """
+        raise NotImplementedError()
+
+        final_result = []
+        for page in self.client.get_paginator('describe_instances').paginate(Filters=[{'Name': 'instance-id', 'Values': ids}]):
+            for instance in page['Reservations']:
+                final_result.extend(instance['Instances'])
+
+        ret = self.client.describe_instances(Filters = [{'Name':'instance-id', 'Values': ids}])
+        for x in ret["Reservations"]: print(x)
+
+        final_result = list()
+        for page in self.client.get_paginator('describe_instances').paginate():
+            for instance in page['Reservations']:
+                final_result.extend(instance['Instances'])
+
+        return [EC2Instance(instance) for instance in final_result]
+
+    @Boto3Client.requires_connection
     def get_all_instances(self):
         final_result = list()
         for instance in self.execute(self.client.describe_instances, "Reservations"):

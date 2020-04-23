@@ -1,6 +1,6 @@
 import threading
 from boto3.session import Session
-
+import pdb
 
 class DecoratorDescriptor(object):
     def __get__(self, instance, owner):
@@ -106,8 +106,14 @@ class Boto3Client(object):
             filters_req = {}
 
         for _page in self.client.get_paginator(func_command.__name__).paginate(**filters_req):
+            #todo: nextToken in paginate
+            next_token = _page.get("nextToken") or _page.get("NextContinuationToken")
+
+            self.logger.debug("Called func {} with nextToken '{}'".format(func_command.__name__, next_token))
             Boto3Client.EXEC_COUNT += 1
-            print("Executed API Calls Count:".format(Boto3Client.EXEC_COUNT))
+
+            self.logger.debug("Executed API Calls Count: {}".format(Boto3Client.EXEC_COUNT))
+
             for response_obj in _page[return_string]:
                 yield response_obj
 
@@ -132,6 +138,8 @@ class Boto3Client(object):
 
         Boto3Client.EXEC_COUNT += 1
         response = func_command(**filters_req)
+
+        self.logger.debug("Executed API Calls Count: {}".format(Boto3Client.EXEC_COUNT))
 
         if type(response[return_string]) is list:
             ret_lst = response[return_string]

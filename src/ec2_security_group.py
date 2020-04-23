@@ -87,7 +87,7 @@ class EC2SecurityGroup(AwsObject):
 
             self.init_attrs(dict_src, init_options)
 
-        def init_ip_addresses(self, key_name, lst_src):
+        def init_ip_addresses(self, _, lst_src):
             for dict_src in lst_src:
                 if "CidrIp" in dict_src:
                     ip = IP(dict_src["CidrIp"])

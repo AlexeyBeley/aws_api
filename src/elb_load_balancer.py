@@ -1,6 +1,7 @@
 from dns import DNS
 import sys
 import os
+from common_utils import CommonUtils
 
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 
@@ -43,8 +44,24 @@ class ClassicLoadBalancer(AwsObject):
 
     def get_dns_records(self):
         ret = [self.dns_name] if self.dns_name else []
-
         return ret
 
-    def get_all_addresses(self):
-        return [DNS(self.dns_name)]
+    def get_all_networks(self, vpc_subnets):
+        lst_ret = []
+        for subnet in self.subnets:
+            lst_ret.append(CommonUtils.find_objects_by_values(vpc_subnets, {"id": subnet}, max_count=1)[0].cidr_block)
+
+        for zone in self.availability_zones:
+            if type(zone) == str:
+                continue
+            if zone["LoadBalancerAddresses"] != [{}]:
+                raise Exception
+
+            if self.subnets:
+                import pdb
+                pdb.set_trace()
+            lst_ret.append(CommonUtils.find_objects_by_values(vpc_subnets, {"id": zone["SubnetId"]}, max_count=1)[0].cidr_block)
+
+        return lst_ret
+
+

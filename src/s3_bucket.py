@@ -13,6 +13,8 @@ class S3Bucket(AwsObject):
     def __init__(self, dict_src, from_cache=False):
         self.acl = None
         self.policy = None
+        self.contents = []
+
         super(S3Bucket, self).__init__(dict_src)
         if from_cache:
             self._init_bucket_from_cashe(dict_src)
@@ -61,6 +63,9 @@ class S3Bucket(AwsObject):
             self.policy = S3Bucket.Policy(str_src)
         else:
             raise NotImplementedError
+
+    def update_contents(self, contents):
+        self.contents = contents
 
     class ACL(AwsObject):
         def __init__(self, src_data, from_cache=False):

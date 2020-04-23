@@ -12,6 +12,7 @@ class EC2VPCSubnet(AwsObject):
     def __init__(self, dict_src, from_cache=False):
         super(EC2VPCSubnet, self).__init__(dict_src)
         self.tags = []
+        self.cidr_block = None
 
         if from_cache:
             self._init_object_from_cache(dict_src)
@@ -24,7 +25,7 @@ class EC2VPCSubnet(AwsObject):
                         "AvailabilityZone": self.init_default_attr,
                         "AvailabilityZoneId": self.init_default_attr,
                         "AvailableIpAddressCount": self.init_default_attr,
-                        "CidrBlock": self.init_default_attr,
+                        "CidrBlock": self.init_cidr_block,
                         "DefaultForAz": self.init_default_attr,
                         "MapPublicIpOnLaunch": self.init_default_attr,
                         "State": self.init_default_attr,
@@ -42,10 +43,21 @@ class EC2VPCSubnet(AwsObject):
         else:
             self.name = self.id
 
+    def init_cidr_block(self, _, dict_src):
+        self.cidr_block = IP(dict_src)
+
     def _init_object_from_cache(self, dict_src):
-        options = {}
+        options = {
+            'cidr_block': self._init_cidr_block_from_cache,
+        }
         self._init_from_cache(dict_src, options)
 
+    def _init_cidr_block_from_cache(self, _, value):
+        if self.cidr_block is not None:
+            raise NotImplementedError
+        else:
+            self.cidr_block = IP(value, from_dict=True)
+
     def convert_to_dict(self):
-        custom_types = {}
+        custom_types = {IP: lambda x: x.convert_to_dict()}
         return self.convert_to_dict_static(self.__dict__, custom_types=custom_types)

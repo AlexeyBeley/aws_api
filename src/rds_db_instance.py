@@ -7,7 +7,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 
 from aws_object import AwsObject
-from ip import IP
+from common_utils import CommonUtils
+from dns import DNS
 
 class DBInstance(AwsObject):
     def __init__(self, dict_src, from_cache=False):
@@ -97,7 +98,7 @@ class DBInstance(AwsObject):
             if sg["Status"] != "active":
                 raise Exception
             endpoint = {"sg_id": sg["VpcSecurityGroupId"]}
-            endpoint["dns"] = self.endpoint["Address"]
+            endpoint["dns"] = DNS(self.endpoint["Address"])
             endpoint["port"] = self.endpoint["Port"]
 
             endpoint["description"] = "rds: {}".format(self.name)
@@ -105,5 +106,13 @@ class DBInstance(AwsObject):
 
         return ret
 
-    def get_all_addresses(self):
+    def get_all_addresses(self,):
         return [self.endpoint["Address"]]
+
+    def get_all_networks(self, vpc_subnets):
+        lst_ret = []
+
+        for vpc_subnet in self.db_subnet_group["Subnets"]:
+            lst_ret.append(CommonUtils.find_objects_by_values(vpc_subnets, {"id": vpc_subnet["SubnetIdentifier"]}, max_count=1)[0].cidr_block)
+
+        return lst_ret

@@ -2,14 +2,19 @@ import json
 import pdb
 import os
 import socket
+import datetime
 
 from enum import Enum
 from ip import IP
+from text_block import TextBlock
 
 from ec2_client import EC2Client
 from ec2_instance import EC2Instance
 from ec2_security_group import EC2SecurityGroup
 from ec2_vpc_subnet import EC2VPCSubnet
+
+from cloudwatch_logs_client import CloudWatchLogsClient
+from cloudwatch_log_group import CloudwatchLogGroup
 
 from s3_client import S3Client
 from s3_bucket import S3Bucket
@@ -68,14 +73,48 @@ class Service(object):
 class ServiceTCP(Service):
     def __init__(self):
         super(ServiceTCP, self).__init__()
-        self.start = None
-        self.end = None
+        self._start = None
+        self._end = None
 
     def __str__(self):
         return "TCP:[{}-{}]".format(self.start, self.end)
 
+    @property
+    def start(self):
+        return self._start
+
+    @start.setter
+    def start(self, value):
+        self.check_range(value)
+
+        if self.end:
+            self.check_order(value, self.end)
+
+        self._start = value
+
+    @property
+    def end(self):
+        return self._end
+
+    @end.setter
+    def end(self, value):
+        self.check_range(value)
+
+        if self.start:
+            self.check_order(self.start, value)
+
+        self._end = value
+
+    def check_range(self, value):
+        if value < 0 or value > 65535:
+            raise ValueError("Port should be in range 0-65535, received {}".format(value))
+
+    def check_order(self, start, end):
+        if start > end:
+            raise ValueError("Port start {} > Port end {}".format(start, end))
+
     def copy(self):
-        service = Service()
+        service = ServiceTCP()
         service.start = self.start
         service.end = self.end
         return service
@@ -95,6 +134,15 @@ class ServiceUDP(Service):
         service.start = self.start
         service.end = self.end
         return service
+
+
+class ServiceICMP(Service):
+    def __init__(self):
+        super(ServiceICMP, self).__init__()
+
+    def __str__(self):
+        raise NotImplementedError
+        return "UDP:[{}-{}]".format(self.start, self.end)
 
 
 class HFlowFilter(object):
@@ -332,13 +380,6 @@ class HFlow(object):
         def repr_out(self):
             return "[ip:{} , dns:{} , service:{}]".format(self.ip_dst, self.dns_dst, self.service_dst)
 
-class TextBlock(object):
-    def __init__(self, header):
-        self.header = header
-        self.lines = []
-        self.blocks = []
-        self.footer = []
-
 
 class DNSMapNode(object):
     POINTER = "pointer"
@@ -439,7 +480,6 @@ class DNSMap(object):
 
             pointed_dnss = [record.alias_target["DNSName"].rstrip(".")]
         elif record.type == "SRV":
-            # {'Name': 'srv.alerts.local.env.fbx.im.', 'Type': 'SRV', 'TTL': 1, 'ResourceRecords': [{'Value': '1 10 10080 alerts.local.env.fbx.im'}]}
             if not hasattr(record, "resource_records"):
                 raise Exception
 
@@ -502,10 +542,24 @@ class SecurityGroupMapEdge(object):
     @property
     def service(self):
         if self._service is None:
-            if self.ip_protocol is None:
+            if self.ip_protocol == '-1':
+                if self.from_port is not None or self.to_port is not None:
+                    raise Exception
                 self._service = Service.any()
             else:
-                pdb.set_trace()
+                if self.ip_protocol.lower() == "tcp":
+                    self._service = ServiceTCP()
+                    self._service.start = self.from_port
+                    self._service.end = self.to_port
+                elif self.ip_protocol.lower() == "udp":
+                    self._service = ServiceUDP()
+                    self._service.start = self.from_port
+                    self._service.end = self.to_port
+                elif self.ip_protocol.lower() == "icmp":
+                    self._service = ServiceICMP()
+                else:
+                    pdb.set_trace()
+                    raise ValueError
 
         return self._service
 
@@ -528,7 +582,9 @@ class SecurityGroupMapNode(object):
         self.outgoing_edges = []
         self.incoming_edges = []
         self.data = []
+        self._h_flow_filters_dst_only_ip = None
         self._h_flow_filters_dst = None
+        self._h_flow_filters_src_only_ip = None
         self._h_flow_filters_src = None
 
         for permission in self.security_group.ip_permissions:
@@ -537,56 +593,133 @@ class SecurityGroupMapNode(object):
         for permission in self.security_group.ip_permissions_egress:
             self.add_edges_from_permission(self.outgoing_edges, permission)
 
-    @property
-    def h_flow_filters_dst(self):
+    def h_flow_filters_dst(self, nodes, only_ip=False):
+        if only_ip:
+            if self._h_flow_filters_dst_only_ip is not None:
+                return self._h_flow_filters_dst_only_ip
+            self._h_flow_filters_dst_only_ip = []
+            lst_filters = self._h_flow_filters_dst_only_ip
+        else:
+            if self._h_flow_filters_dst is not None:
+                return self._h_flow_filters_dst
+            self._h_flow_filters_dst = []
+            lst_filters = self._h_flow_filters_dst
 
-        if not self._h_flow_filters_dst:
-            lst_filters = []
+        for data_unit in self.data:
+            for edge in self.outgoing_edges:
+                if edge.type is SecurityGroupMapEdge.Type.IP:
 
-            for data_unit in self.data:
-                for edge in self.outgoing_edges:
-                    if edge.type is SecurityGroupMapEdge.Type.IP:
+                    h_filter = HFlow.Tunnel.Traffic()
 
-                        h_filter = HFlow.Tunnel.Traffic()
+                    h_filter.info = [data_unit, edge]
 
-                        h_filter.info = [data_unit, edge]
-
-                        h_filter.dns_src = DNS(data_unit["dns"])
-                        if "ip" not in data_unit:
-                            ip = AWSAPI.find_ips_from_dns(h_filter.dns_src)[0]
-                        else:
-                            ip = data_unit["ip"]
-
-                        h_filter.ip_src = ip
-
-                        h_filter.ip_dst = edge.dst
-                        h_filter.service_dst = edge.service
-
-                        lst_filters.append(h_filter)
+                    h_filter.dns_src = data_unit["dns"]
+                    if "ip" not in data_unit:
+                        ip = AWSAPI.find_ips_from_dns(h_filter.dns_src)[0]
                     else:
+                        ip = data_unit["ip"]
+
+                    h_filter.ip_src = ip
+
+                    h_filter.ip_dst = edge.dst
+                    h_filter.service_dst = edge.service
+
+                    lst_filters.append(h_filter)
+                elif edge.type is SecurityGroupMapEdge.Type.SECURITY_GROUP:
+                    if only_ip:
                         pdb.set_trace()
 
+                    remote_filters_src = nodes[edge.dst].h_flow_filters_src(nodes, only_ip=True)
+                    if not remote_filters_src:
+                        continue
+
+                    ip_src = data_unit.get("ip")
+                    dns_src = data_unit.get("dns")
+                    for remote_filter in remote_filters_src:
+                        if remote_filter.ip_src is None:
+                            continue
+                        if ip_src.intersect(remote_filter.ip_src):
+                            pdb.set_trace()
+                            raise Exception
+
+                    pdb.set_trace()
+                    raise Exception
+
+                else:
+                    raise ValueError
+
+        if only_ip:
+            self._h_flow_filters_dst_only_ip = lst_filters
+            return self._h_flow_filters_dst_only_ip
+        else:
             self._h_flow_filters_dst = lst_filters
+            return self._h_flow_filters_dst
 
-        return self._h_flow_filters_dst
+    def h_flow_filters_src(self, nodes, only_ip=False):
+        if only_ip:
+            if self._h_flow_filters_src_only_ip is not None:
+                return self._h_flow_filters_src_only_ip
+            self._h_flow_filters_src_only_ip = []
+            lst_filters = self._h_flow_filters_src_only_ip
+        else:
+            if self._h_flow_filters_src is not None:
+                return self._h_flow_filters_src
+            self._h_flow_filters_src = []
+            lst_filters = self._h_flow_filters_src
 
-    @h_flow_filters_dst.setter
-    def h_flow_filters_dst(self, value):
-        raise NotImplementedError
+        for data_unit in self.data:
 
-    @property
-    def h_flow_filters_src(self):
+            for edge in self.incoming_edges:
+                if edge.type is SecurityGroupMapEdge.Type.IP:
+                    h_filter = HFlow.Tunnel.Traffic()
 
-        pdb.set_trace()
-        if not self._h_flow_filters_src:
-            lst_filters = []
+                    h_filter.info = [data_unit, edge]
+
+                    h_filter.ip_src = edge.dst
+                    h_filter.dns_dst = data_unit["dns"]
+                    if "ip" not in data_unit:
+                        ip = AWSAPI.find_ips_from_dns(h_filter.dns_dst)[0]
+                    else:
+                        ip = data_unit["ip"]
+
+                    h_filter.ip_dst = ip
+
+                    h_filter.service_dst = edge.service
+                    lst_filters.append(h_filter)
+
+                elif edge.type is SecurityGroupMapEdge.Type.SECURITY_GROUP:
+                    if only_ip:
+
+                        all_addresses = nodes[edge.dst].get_all_addresses()
+                        for dict_addr in all_addresses:
+                            h_filter = HFlow.Tunnel.Traffic()
+
+                            h_filter.info = [data_unit, edge]
+
+                            h_filter.dns_src = dict_addr["dns"]
+                            h_filter.dns_dst = data_unit["dns"]
+                            if "ip" not in data_unit:
+                                ip = AWSAPI.find_ips_from_dns(h_filter.dns_dst)[0]
+                            else:
+                                ip = data_unit["ip"]
+
+                            h_filter.ip_dst = ip
+                            h_filter.ip_src = dict_addr["ip"]
+
+                            h_filter.service_dst = edge.service
+                            lst_filters.append(h_filter)
+                    else:
+                        raise NotImplementedError
+
+                else:
+                    raise ValueError
+
+        if only_ip:
+            self._h_flow_filters_src_only_ip = lst_filters
+            return self._h_flow_filters_src_only_ip
+        else:
             self._h_flow_filters_src = lst_filters
-
-        return self._h_flow_filters_src
-
-    @h_flow_filters_src.setter
-    def h_flow_filters_src(self, value):
-        raise NotImplementedError
+            return self._h_flow_filters_src
 
     def add_edges_from_permission(self, dst_lst, permission):
         """
@@ -617,7 +750,7 @@ class SecurityGroupMapNode(object):
             from_port = permission.from_port if hasattr(permission, "from_port") else None
             to_port = permission.to_port if hasattr(permission, "to_port") else None
 
-            edge = SecurityGroupMapEdge(edge_type, value, description, ip_protocol, from_port, to_port)
+            edge = SecurityGroupMapEdge(edge_type, value, ip_protocol, from_port, to_port, description)
             dst_lst.append(edge)
 
         if permission.prefix_list_ids:
@@ -625,6 +758,18 @@ class SecurityGroupMapNode(object):
 
     def add_data(self, data):
         self.data.append(data)
+
+    def get_all_addresses(self):
+        lst_ret = []
+
+        for data in self.data:
+            dict_addr = {"ip": None, "dns": None}
+            try:
+                dict_addr["ip"] = data["ip"]
+            except KeyError:
+                dict_addr["dns"] = data["dns"]
+            lst_ret.append(dict_addr)
+        return lst_ret
 
 
 class SecurityGroupsMap(object):
@@ -652,6 +797,25 @@ class SecurityGroupsMap(object):
 
         return self.recursive_apply_dst_h_flow_filters_multihop(h_flow, [], [])
 
+    def apply_dst_h_flow_filters(self, h_flow):
+        lst_ret = []
+        node = self.nodes[h_flow.end_point_src.custom["security_group_id"]]
+        for edge in node.outgoing_edges:
+            if edge.type == SecurityGroupMapEdge.Type.IP:
+                lst_h_flows = h_flow.apply_dst_filters_on_start(node.h_flow_filters_dst(self.nodes))
+                lst_ret += lst_h_flows
+            elif edge.type == SecurityGroupMapEdge.Type.SECURITY_GROUP:
+                if not self.nodes[edge.dst].data:
+                    print("self.nodes[edge.dst] is empty: {}".format(self.nodes[edge.dst]))
+                    continue
+
+                pdb.set_trace()
+                raise NotImplementedError
+            else:
+                pdb.set_trace()
+                raise NotImplementedError
+        return lst_ret
+
     def recursive_apply_dst_h_flow_filters_multihop(self, h_flow, lst_path, lst_seen):
         node = self.nodes[h_flow.end_point_src.custom["security_group_id"]]
 
@@ -663,11 +827,12 @@ class SecurityGroupsMap(object):
         for edge in node.outgoing_edges:
             if edge.type == SecurityGroupMapEdge.Type.IP:
                 lst_h_flows = h_flow.apply_dst_filters_on_start(node.h_flow_filters_dst)
-
                 lst_path.append(edge.dst)
-                return lst_path
             elif edge.type == SecurityGroupMapEdge.Type.SECURITY_GROUP:
-                return self.recursive_apply_dst_h_flow_filters_multihop(self.nodes[edge.dst], lst_path, [])
+                pdb.set_trace()
+                lst_h_flows = self.recursive_apply_dst_h_flow_filters_multihop(self.nodes[edge.dst], lst_path, [])
+
+                lst_path
             else:
                 pdb.set_trace()
                 raise NotImplementedError
@@ -675,6 +840,7 @@ class SecurityGroupsMap(object):
 
 class AWSAPI(object):
     def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+        self.logger = logger
         self.aws_key_id = aws_key_id
         self.aws_access_secret = aws_access_secret
         self.iam_client = IamClient(aws_key_id, aws_access_secret, region_name, logger)
@@ -684,6 +850,7 @@ class AWSAPI(object):
         self.elb_client = ELBClient(aws_key_id, aws_access_secret, region_name, logger)
         self.rds_client = RDSClient(aws_key_id, aws_access_secret, region_name, logger)
         self.route53_client = Route53Client(aws_key_id, aws_access_secret, region_name, logger)
+        self.cloudwatch_log_client = CloudWatchLogsClient(aws_key_id, aws_access_secret, region_name, logger)
         self.policies = []
         self.ec2_instances = []
         self.s3_buckets = []
@@ -694,12 +861,14 @@ class AWSAPI(object):
         self.databases = []
         self.security_groups = []
         self.target_groups = []
+        self.vpc_subnets = []
+        self.cloudwatch_log_groups = []
 
     def init_ec2_instances(self, from_cache=False, cache_file=None):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, EC2Instance)
         else:
-            objects = self.ec2_client.get_allget_all_instances()
+            objects = self.ec2_client.get_all_instances()
 
         self.ec2_instances = objects
 
@@ -769,11 +938,19 @@ class AWSAPI(object):
 
     def init_vpc_subnets(self, from_cache=False, cache_file=None, full_information=False):
         if from_cache:
-            pdb.set_trace()
             objects = self.load_objects_from_cache(cache_file, EC2VPCSubnet)
         else:
             objects = self.ec2_client.get_all_vpc_subnets(full_information=full_information)
-        self.security_groups = objects
+
+        self.vpc_subnets = objects
+
+    def init_cloudwatch_logs(self, from_cache=False, cache_file=None, full_information=False):
+        if from_cache:
+            objects = self.load_objects_from_cache(cache_file, CloudwatchLogGroup)
+        else:
+            objects = self.cloudwatch_log_client.get_all_log_groups(full_information=full_information)
+
+        self.cloudwatch_log_groups = objects
 
     def init_security_groups(self, from_cache=False, cache_file=None, full_information=False):
         if from_cache:
@@ -793,7 +970,85 @@ class AWSAPI(object):
             os.makedirs(os.path.dirname(file_name))
 
         with open(file_name, "w") as fil:
-            fil.write(json.dumps(objects_dicts))
+            try:
+                fil.write(json.dumps(objects_dicts))
+            except Exception as e:
+                pdb.set_trace()
+                from aws_cleaner import AWSCleaner
+                AWSCleaner(self).cleanup_report_s3_buckets()
+
+    def delete_cloudwatch_logs(self, delete_list, dry_run=True):
+        """
+        Tries to delete each pair from delete_list synchronously.
+        Returns list of successfully deleted pairs.
+        If fails on one, continues to the next.
+
+        :param delete_list:
+        :param dry_run:
+        :return:
+        """
+
+        failed_to_delete = []
+
+        if dry_run:
+            with open("going_to_delete.txt", "w") as fil:
+                for group_name, stream_names_dict in delete_list:
+                    for stream_name, lst_date in stream_names_dict.items():
+                        fil.write("group_name '{}' stream_name '{}' date '{}'\n".format(group_name, stream_name, lst_date[0]))
+            return
+
+        for group_name, stream_names_dict in delete_list:
+            pdb.set_trace()
+            if len(stream_names_dict) == 0:
+                try:
+                    if not self.cloudwatch_log_client.delete_log_group(group_name):
+                        failed_to_delete.append((group_name, stream_names_dict))
+                except Exception as e:
+                    if "The specified log group does not exist" in repr(e):
+                        self.logger.warning("Cloudwatch LogGroup '{}' doesn't exist".format(group_name))
+                    else:
+                        raise
+            else:
+                failed_stream_names = self.cloudwatch_log_client.delete_log_streams(group_name, stream_names_dict)
+                if failed_stream_names:
+                    failed_to_delete.append((group_name, failed_stream_names))
+
+        return failed_to_delete
+
+    def synchronous_export_cloudwatch_logs(self, export_list, upload_s3_bucket_name, bucket_prefix):
+        """
+        Tries to export each pair from export_list synchronously.
+        Returns list of pairs failed to be exported.
+        If fails on one, continues to the next.
+
+        :param export_list:
+        :param upload_s3_bucket_name:
+        :param bucket_prefix:
+        :return:
+        """
+        len_export_list = len(export_list)
+        count_streams = sum([len(streams) for group, streams in export_list])
+
+        self.logger.info("Going to export cloudwatch streams. Groups: {} Streams: {}".format(len_export_list, count_streams))
+        pdb.set_trace()
+
+        counter_processed_streams = 0
+        failed_to_export = []
+        for i in range(len_export_list):
+            self.logger.info("Finished processing {} CloudWatch Log Groups, {} Streams".format(i, counter_processed_streams))
+            group_name, stream_names = export_list[i]
+            try:
+                counter_processed_streams += len(stream_names)
+                failed_to_export_streams = self.cloudwatch_log_client.synchronous_export_task(upload_s3_bucket_name, bucket_prefix, group_name, stream_names)
+
+                if failed_to_export_streams:
+                    failed_to_export += failed_to_export_streams
+
+            except Exception as e:
+                failed_to_export.append((group_name, stream_names))
+                self.logger.error("failed to synchronously upload group {} streams {} with error {}".format(group_name, stream_names, repr(e)))
+
+        return failed_to_export
 
     def _get_down_instances(self):
         ret = []
@@ -828,6 +1083,8 @@ class AWSAPI(object):
 
     def cleanup_report(self):
         # todo: check lambda cost vs instance
+        ret = self.cleanup_report_cloudwatch_logs()
+
         ret = self.cleanup_load_balancers()
         ret = self.cleanup_target_groups()
         pdb.set_trace()
@@ -837,6 +1094,149 @@ class AWSAPI(object):
         ret = self.cleanup_report_dns_records()
 
         return ret
+
+    def cleanup_report_cloudwatch_logs(self):
+        ret = TextBlock("Cloudwatch logs report")
+
+        ret.blocks.append(self.cleanup_report_cloudwatch_logs_by_all_log_dates())
+
+        ret.blocks.append(self.cleanup_report_cloudwatch_logs_by_last_log_date())
+
+    def cleanup_report_cloudwatch_logs_by_all_log_dates(self):
+        current_time = datetime.datetime.now()
+
+        def map_timestamp_to_key(log_timestamp):
+            datetime_log_timestamp = datetime.datetime.fromtimestamp(log_timestamp / 1000.0)
+            date_log_delta = current_time - datetime_log_timestamp
+            return int(date_log_delta.days / 365), datetime_log_timestamp
+
+        stream_size_report = "Stream size"
+        total_interval_streams_size = "Total streams size"
+        dict_reports = {}
+
+        for log_group in self.cloudwatch_log_groups:
+            for log_stream in log_group.log_streams:
+                try:
+                    key_year_last, date_log_timestamp_last = map_timestamp_to_key(log_stream.last_event_timestamp)
+                    key_year_first, date_log_timestamp_first = map_timestamp_to_key(log_stream.first_event_timestamp)
+
+                    if key_year_last != 0:
+                        continue
+
+                    if key_year_last not in dict_reports:
+                        dict_reports[key_year_last] = {}
+
+                    if key_year_first not in dict_reports[key_year_last]:
+                        dict_reports[key_year_last][key_year_first] = {}
+
+                    if stream_size_report not in dict_reports[key_year_last][key_year_first]:
+                        dict_reports[key_year_last][key_year_first][stream_size_report] = TextBlock(stream_size_report)
+                        dict_reports[key_year_last][key_year_first][total_interval_streams_size] = 0
+
+                    dict_reports[key_year_last][key_year_first][total_interval_streams_size] += log_stream.stored_bytes
+                    dict_reports[key_year_last][key_year_first][stream_size_report].lines.append("{}-{}: {}: {}: {}".format(date_log_timestamp_last, date_log_timestamp_first, log_group.name, log_stream.name, log_stream.stored_bytes))
+                except AttributeError:
+                    continue
+
+        report = TextBlock("Cleaning logs by log duration")
+        raise NotImplementedError()
+        print(report)
+        pdb.set_trace()
+        return report
+
+    def cleanup_report_cloudwatch_logs_by_last_log_date(self):
+        current_time = datetime.datetime.now()
+
+        def map_timestamp_to_key(log_timestamp):
+            datetime_log_timestamp = datetime.datetime.fromtimestamp(log_timestamp / 1000.0)
+            date_log_delta = current_time - datetime_log_timestamp
+            return int(date_log_delta.days/365), datetime_log_timestamp
+
+        empty_streams_report = "Empty streams found"
+        stream_size_report = "Stream size report"
+        total_streams_size = "Total streams size"
+        dict_reports = {}
+
+        for log_group in self.cloudwatch_log_groups:
+            for log_stream in log_group.log_streams:
+                try:
+                    key_line, date_log_timestamp = map_timestamp_to_key(log_stream.last_event_timestamp)
+                    if key_line not in dict_reports:
+                        dict_reports[key_line] = {}
+
+                    if stream_size_report not in dict_reports[key_line]:
+                        dict_reports[key_line][stream_size_report] = TextBlock(stream_size_report)
+                        dict_reports[key_line][total_streams_size] = 0
+
+                    dict_reports[key_line][total_streams_size] += log_stream.stored_bytes
+                    dict_reports[key_line][stream_size_report].lines.append("{}: {}: {}: {}".format(date_log_timestamp, log_group.name, log_stream.name, log_stream.stored_bytes))
+                except AttributeError:
+                    # handle empty log
+                    if log_stream.stored_bytes > 0:
+                        raise RuntimeError("When no last_event_time exists, sotred_bytes expected to be 0 {}: {}: {}".format(log_group.name, log_stream.name, log_stream.last_event_timestamp))
+
+                    key_line, date_log_timestamp = map_timestamp_to_key(log_stream.creation_time)
+                    if key_line not in dict_reports:
+                        dict_reports[key_line] = {}
+
+                    if empty_streams_report not in dict_reports[key_line]:
+                        dict_reports[key_line][empty_streams_report] = TextBlock(empty_streams_report)
+
+                    dict_reports[key_line][empty_streams_report].lines.append("{}: {}: {}".format(date_log_timestamp, log_group.name, log_stream.name))
+                    continue
+
+        report = TextBlock("Cleaning logs by last written log line date")
+        for year in dict_reports:
+            report_year = TextBlock("{} years ago".format(year))
+
+            report_year.lines.append("{}: {} MB".format(total_streams_size, int(dict_reports[year][total_streams_size]/(1024*1024))))
+            report_year.lines.append("{}: {}".format(empty_streams_report, len(dict_reports[year][empty_streams_report].lines)))
+
+            report.blocks.append(report_year)
+
+        print(report)
+        return report
+
+    def delete_cloudwatch_logs_by_last_event_date(self, date_event_limit=datetime.datetime.now() - datetime.timedelta(days=365)):
+        for log_group in self.cloudwatch_log_groups:
+            for log_stream in log_group.log_streams:
+                try:
+                    key_line, date_log_timestamp = map_timestamp_to_key(log_stream.last_event_timestamp)
+                    if key_line not in dict_reports:
+                        dict_reports[key_line] = {}
+
+                    if stream_size_report not in dict_reports[key_line]:
+                        dict_reports[key_line][stream_size_report] = TextBlock(stream_size_report)
+                        dict_reports[key_line][total_streams_size] = 0
+
+                    dict_reports[key_line][total_streams_size] += log_stream.stored_bytes
+                    dict_reports[key_line][stream_size_report].lines.append("{}: {}: {}: {}".format(date_log_timestamp, log_group.name, log_stream.name, log_stream.stored_bytes))
+                except AttributeError:
+                    # handle empty log
+                    if log_stream.stored_bytes > 0:
+                        raise RuntimeError("When no last_event_time exists, sotred_bytes expected to be 0 {}: {}: {}".format(log_group.name, log_stream.name, log_stream.last_event_timestamp))
+
+                    key_line, date_log_timestamp = map_timestamp_to_key(log_stream.creation_time)
+                    if key_line not in dict_reports:
+                        dict_reports[key_line] = {}
+
+                    if empty_streams_report not in dict_reports[key_line]:
+                        dict_reports[key_line][empty_streams_report] = TextBlock(empty_streams_report)
+
+                    dict_reports[key_line][empty_streams_report].lines.append("{}: {}: {}".format(date_log_timestamp, log_group.name, log_stream.name))
+                    continue
+
+        report = TextBlock("Cleaning logs by last written log line date")
+        for year in dict_reports:
+            report_year = TextBlock("{} years ago".format(year))
+
+            report_year.lines.append("{}: {} MB".format(total_streams_size, int(dict_reports[year][total_streams_size]/(1024*1024))))
+            report_year.lines.append("{}: {}".format(empty_streams_report, len(dict_reports[year][empty_streams_report].lines)))
+
+            report.blocks.append(report_year)
+
+        print(report)
+        return report
 
     def cleanup_load_balancers(self):
         unuzed_load_balancers = []
@@ -892,6 +1292,7 @@ class AWSAPI(object):
 
         for ec2_instance in self.ec2_instances:
             for endpoint in ec2_instance.get_security_groups_endpoints():
+
                 sg_map.add_node_data(endpoint["sg_id"], endpoint)
 
         for lb in self.load_balancers:
@@ -919,7 +1320,7 @@ class AWSAPI(object):
 
     def get_ec2_instances_h_flow_destinations(self):
         sg_map = self.prepare_security_groups_mapping()
-        total_count = 0
+        lst_ret = []
         for ec2_instance in self.ec2_instances:
             for endpoint in ec2_instance.get_security_groups_endpoints():
                 print(endpoint)
@@ -938,8 +1339,8 @@ class AWSAPI(object):
 
                 if "dns" in endpoint:
                     #print("ec2_instance: {} dns not in interface: {}/{}".format(ec2_instance.name, endpoint["device_name"], endpoint["device_id"]))
-                    end_point_src.dns = DNS(endpoint["dns"])
-                    tunnel.traffic_start.dns_src = DNS(endpoint["dns"])
+                    end_point_src.dns = endpoint["dns"]
+                    tunnel.traffic_start.dns_src = endpoint["dns"]
 
                 end_point_src.add_custom("security_group_id", endpoint["sg_id"])
 
@@ -950,62 +1351,72 @@ class AWSAPI(object):
 
                 tunnel.traffic_start.ip_dst = tunnel.traffic_start.any()
                 hflow.tunnel = tunnel
-                lst_flow = sg_map.apply_dst_h_flow_filters_multihop(hflow)
-                lst_resources = self.find_resources_by_ip(lst_flow[-1])
-                pdb.set_trace()
-                total_count += 1
-                print("{}: {}".format(len(lst_flow), lst_flow))
+                lst_flow = sg_map.apply_dst_h_flow_filters(hflow)
+                #lst_resources = self.find_resources_by_network(lst_flow[-1])
+                lst_ret += lst_flow
+                #print("{}: {}".format(len(lst_flow), lst_flow))
 
                 #pdb.set_trace()
 
-        print("Total hflows count: {}".format(total_count))
         pdb.set_trace()
-        self.find_end_point_by_dns()
+        return lst_ret
+        #print("Total hflows count: {}".format(total_count))
+        #self.find_end_point_by_dns()
 
-    def find_resources_by_ip(self, ip_addr):
+    def find_resources_by_network(self, ip_addr):
         lst_ret = self.find_ec2_instances_by_ip(ip_addr)
-        lst_ret += self.find_loadbalancers_by_ip(ip_addr)
-        lst_ret += self.find_rdss_by_ip(ip_addr)
-        lst_ret += self.find_elastic_searches_by_ip(ip_addr)
+        lst_ret += self.find_loadbalancers_by_network(ip_addr)
+        lst_ret += self.find_rdss_by_network(ip_addr)
+        #lst_ret += self.find_elastic_searches_by_network(ip_addr)
         return lst_ret
 
-    def find_elastic_searches_by_ip(self, ip_addr):
-        raise NotImplementedError
+    def find_elastic_searches_by_network(self, ip_addr):
+        pdb.set_trace()
+
         lst_ret = []
         for ec2_instance in self.ec2_instances:
-            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_ips()):
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_addresses()):
                 lst_ret.append(ec2_instance)
         return lst_ret
 
-    def find_rdss_by_ip(self, ip_addr):
+    def find_rdss_by_network(self, ip_addr):
+        lst_ret = []
+        for obj in self.databases:
+            for ip in obj.get_all_networks(self.vpc_subnets):
+                if ip_addr.intersect(ip):
+                    lst_ret.append(obj)
+                    break
+        return lst_ret
+
+    def find_loadbalancers_by_network(self, ip_addr):
+        """
+            find load balancers, having network interscting the src network
+            only configs data
+            :param ip_addr:
+            :return:
+            """
         lst_ret = []
 
-        for obj in self.databases:
-            for addr in obj.get_all_addresses():
-                if isinstance(addr, IP):
-                    lst_addr = [addr]
-                elif isinstance(addr, DNS):
-                    pdb.set_trace()
-                    lst_addr = AWSAPI.find_ips_from_dns(addr)
-                else:
-                    raise ValueError
-
-                for lb_ip_addr in lst_addr:
-                    if ip_addr.intersect(lb_ip_addr):
-                        lst_ret.append(obj)
-                        break
-                else:
-                    continue
-
-                break
+        for obj in self.load_balancers + self.classic_load_balancers:
+            for ip in obj.get_all_networks(self.vpc_subnets):
+                if ip_addr.intersect(ip):
+                    lst_ret.append(obj)
+                    break
 
         return lst_ret
 
     def find_loadbalancers_by_ip(self, ip_addr):
+        """
+        find load balancer by ip- resolve dns to ip and check intersects
+        live data/cache data
+        :param ip_addr:
+        :return:
+        """
+        raise NotImplementedError
         lst_ret = []
 
         for obj in self.load_balancers + self.classic_load_balancers:
-            for addr in obj.get_all_addresses():
+            for vpc_subnet in obj.get_all_networks(self.vpc_subnets):
                 if isinstance(addr, IP):
                     lst_addr = [addr]
                 elif isinstance(addr, DNS):
@@ -1028,7 +1439,7 @@ class AWSAPI(object):
     def find_ec2_instances_by_ip(self, ip_addr):
         lst_ret = []
         for ec2_instance in self.ec2_instances:
-            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_ips()):
+            if any(ip_addr.intersect(inter_ip) is not None for inter_ip in ec2_instance.get_all_addresses()):
                 lst_ret.append(ec2_instance)
         return lst_ret
 

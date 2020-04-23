@@ -1,8 +1,9 @@
 import pdb
-import re
+from dns import DNS
 
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 from ip import IP
 from aws_object import AwsObject
@@ -178,13 +179,13 @@ class EC2Instance(AwsObject):
             for sec_grp in self.groups:
                 for dict_addr in self.private_ip_addresses:
                     # Public
-                    description = "Inteface: SubnetId: {} NetworkInterfaceId: {}- '{}'".format(
+                    description = "Interface: SubnetId: {} NetworkInterfaceId: {}- '{}'".format(
                         self.subnet_id, self.id, self.description)
                     dict_ret = {"sg_id": sec_grp["GroupId"], "sg_name": sec_grp["GroupName"], "description": description}
                     if "Association" in dict_addr:
                         all_addresses.append(dict_addr["Association"]["PublicIp"])
                         dict_ret["ip"] = IP(dict_addr["Association"]["PublicIp"], int_mask=32)
-                        dict_ret["dns"] = dict_addr["Association"]["PublicDnsName"]
+                        dict_ret["dns"] = DNS(dict_addr["Association"]["PublicDnsName"])
                         lst_ret.append(dict_ret)
 
                     # Private
@@ -192,7 +193,7 @@ class EC2Instance(AwsObject):
                     all_addresses.append(dict_addr["PrivateIpAddress"])
                     dict_ret["ip"] = IP(dict_addr["PrivateIpAddress"], int_mask=32)
                     if "PrivateDnsName" in dict_addr:
-                        dict_ret["dns"] = dict_addr["PrivateDnsName"]
+                        dict_ret["dns"] = DNS(dict_addr["PrivateDnsName"])
 
                     lst_ret.append(dict_ret)
 
