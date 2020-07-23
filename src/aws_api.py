@@ -4,7 +4,10 @@ import os
 import socket
 
 from enum import Enum
+
 from ip import IP
+
+from boto3_client import Boto3Client
 
 from ec2_client import EC2Client
 from ec2_instance import EC2Instance
@@ -673,7 +676,7 @@ class SecurityGroupsMap(object):
 
 
 class AWSAPI(object):
-    def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+    def __init__(self, logger, aws_key_id=None, aws_access_secret=None, region_name=None):
         self.aws_key_id = aws_key_id
         self.aws_access_secret = aws_access_secret
         self.iam_client = IamClient(aws_key_id, aws_access_secret, region_name, logger)
@@ -698,7 +701,7 @@ class AWSAPI(object):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, EC2Instance)
         else:
-            objects = self.ec2_client.get_allget_all_instances()
+            objects = self.ec2_client.get_all_instances()
 
         self.ec2_instances = objects
 
@@ -785,6 +788,14 @@ class AWSAPI(object):
 
         with open(file_name, "w") as fil:
             fil.write(json.dumps(objects_dicts))
+
+    @staticmethod
+    def start_assuming_role(role_arn):
+        Boto3Client.start_assuming_role(role_arn)
+
+    @staticmethod
+    def stop_assuming_role():
+        Boto3Client.stop_assuming_role()
 
     def _get_down_instances(self):
         ret = []

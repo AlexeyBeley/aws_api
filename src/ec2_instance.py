@@ -63,7 +63,9 @@ class EC2Instance(AwsObject):
                         "Platform": self.init_default_attr,
                         "SpotInstanceRequestId": self.init_default_attr,
                         "InstanceLifecycle": self.init_default_attr,
-                        "HibernationOptions": self.init_default_attr}
+                        "HibernationOptions": self.init_default_attr,
+                        "MetadataOptions": self.init_default_attr,
+        }
 
         self.init_attrs(dict_src, init_options)
 
@@ -145,6 +147,7 @@ class EC2Instance(AwsObject):
                             "Association": self.init_default_attr,
                             "SubnetId": self.init_default_attr,
                             "VpcId": self.init_default_attr,
+                            "InterfaceType": self.init_default_attr,
                             }
 
             self.init_attrs(dict_src, init_options)
