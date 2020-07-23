@@ -18,7 +18,7 @@ aws_api = AWSAPI(logger, aws_key_id=ignore_me.aws_key_id, aws_access_secret=igno
 def test_init_instances():
     logger.warning("\nBla")
     aws_api.init_ec2_instances()
-    aws_api.start_assuming_role("arn:aws:iam::711521586476:role/sts-devops-mgmt")
+    aws_api.start_assuming_role(ignore_me.role_to_assume)
     print(f"len(instances) = {len(aws_api.ec2_instances)}")
     assert isinstance(aws_api.ec2_instances, list)
     #pdb.set_trace()
