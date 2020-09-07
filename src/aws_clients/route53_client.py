@@ -4,11 +4,10 @@ from route53_hosted_zone import HostedZone
 
 
 class Route53Client(Boto3Client):
-    def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+    def __init__(self):
         client_name = "route53"
-        super(Route53Client, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
+        super(Route53Client, self).__init__(client_name)
 
-    @Boto3Client.requires_connection
     def get_all_hosted_zones(self, full_information=True):
         final_result = list()
 

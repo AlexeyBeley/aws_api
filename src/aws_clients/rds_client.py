@@ -4,11 +4,10 @@ from rds_db_instance import DBInstance
 
 
 class RDSClient(Boto3Client):
-    def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+    def __init__(self):
         client_name = "rds"
-        super(RDSClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
+        super(RDSClient, self).__init__(client_name)
 
-    @Boto3Client.requires_connection
     def get_all_databases(self, full_information=True):
         final_result = list()
 

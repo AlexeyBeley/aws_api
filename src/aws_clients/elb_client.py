@@ -4,11 +4,10 @@ from elb_load_balancer import ClassicLoadBalancer
 
 
 class ELBClient(Boto3Client):
-    def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+    def __init__(self):
         client_name = "elb"
-        super(ELBClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
+        super(ELBClient, self).__init__(client_name)
 
-    @Boto3Client.requires_connection
     def get_all_load_balancers(self, full_information=True):
         final_result = list()
 

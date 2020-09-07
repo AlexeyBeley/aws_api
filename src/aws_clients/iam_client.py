@@ -8,11 +8,10 @@ from common_utils import CommonUtils
 
 
 class IamClient(Boto3Client):
-    def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+    def __init__(self):
         client_name = "iam"
-        super(IamClient, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
+        super(IamClient, self).__init__(client_name)
 
-    @Boto3Client.requires_connection
     def get_all_users(self, full_information=True):
         final_result = list()
 
@@ -30,7 +29,6 @@ class IamClient(Boto3Client):
             # for user in ret:  printer.pprint(user)
         return final_result
 
-    @Boto3Client.requires_connection
     def update_policy_statements(self, policy):
         """
         Fetches and pdates the policy statements
@@ -40,7 +38,6 @@ class IamClient(Boto3Client):
         for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
             policy.update_statements(response)
 
-    @Boto3Client.requires_connection
     def get_all_access_keys(self):
         final_result = list()
         users = self.get_all_users()
@@ -51,14 +48,12 @@ class IamClient(Boto3Client):
 
         return final_result
 
-    @Boto3Client.requires_connection
     def get_all_roles(self):
         final_result = list()
 
         for result in self.execute(self.client.list_roles, "Roles"):
             final_result.append(IamRole(result))
 
-    @Boto3Client.requires_connection
     def get_all_policies(self, full_inforamtion=True):
         final_result = list()
 
@@ -70,7 +65,6 @@ class IamClient(Boto3Client):
             final_result.append(pol)
         return final_result
 
-    @Boto3Client.requires_connection
     def update_policy_statements(self, policy):
         """
         Fetches and pdates the policy statements

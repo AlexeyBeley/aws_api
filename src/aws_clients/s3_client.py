@@ -4,11 +4,10 @@ from s3_bucket import S3Bucket
 
 
 class S3Client(Boto3Client):
-    def __init__(self, aws_key_id, aws_access_secret, region_name, logger):
+    def __init__(self):
         client_name = "s3"
-        super(S3Client, self).__init__(client_name, aws_key_id, aws_access_secret, region_name, logger)
+        super(S3Client, self).__init__(client_name)
 
-    @Boto3Client.requires_connection
     def get_all_buckets(self, full_information=True):
         final_result = list()
         for response in self.execute(self.client.list_buckets, "Buckets"):
