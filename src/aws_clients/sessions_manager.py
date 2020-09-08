@@ -9,24 +9,41 @@ from dateutil.tz import tzlocal
 sys.path.insert(0, "/Users/alexeybe/private/aws_api/src/base_entities")
 from environment import Environment
 
+
 class LockAcquiringFailError(Exception):
     pass
 
 
 class SessionsManager(object):
-    LOCK = threading.Lock()
     CONNECTIONS = {}  # {Session: {client_name: client}}
     ASSUME_ROLE_SESSION_EXPIRY_WINDOW_SECONDS = 60 * 15
 
     class Connection:
+        LOCK = threading.Lock()
+
         def __init__(self, session):
             self.session = session
             self.clients = dict()
 
         def get_client(self, client_name):
-            if client_name not in self.clients:
-                self.clients[client_name] = SessionsManager.connect_client(connection, client_name)
-            return SessionsManager.CONNECTIONS[connection].get(client_name)
+            environment = Environment.get_environment()
+            region_mark = environment.region.region_mark if environment.region is not None else self.session.region_name
+
+            if region_mark not in self.clients or client_name not in self.clients[region_mark]:
+                self.connect_client(region_mark, client_name)
+
+            return self.clients[region_mark][client_name]
+
+        def connect_client(self, region_mark, client_name):
+            acquired = SessionsManager.Connection.LOCK.acquire(blocking=False)
+            try:
+                if acquired is True:
+                    self.clients[region_mark][client_name] = self.session.client(client_name, region_name=region_mark)
+
+                else:
+                    raise LockAcquiringFailError()
+            finally:
+                SessionsManager.Connection.LOCK.release()
 
     @staticmethod
     def get_connection():
@@ -63,26 +80,6 @@ class SessionsManager(object):
     @staticmethod
     def delete_current_session():
         del SessionsManager.CONNECTIONS[SessionsManager.get_current_session()]
-
-    @staticmethod
-    def connect_client(client_name):
-        acquired = SessionsManager.LOCK.acquire(blocking=False)
-        try:
-            if acquired is True:
-                session = SessionsManager.get_current_session()
-                if session is None:
-                    raise RuntimeError("No session to base client on")
-
-                if region_name not in SessionsManager.CONNECTIONS[session]:
-                    SessionsManager.CONNECTIONS[session][region_name] = {}
-
-                if client_name not in SessionsManager.CONNECTIONS[session][region_name]:
-                    SessionsManager.CONNECTIONS[session][region_name][client_name] = session.client(client_name, region_name=region_name)
-
-            else:
-                raise LockAcquiringFailError()
-        finally:
-            SessionsManager.LOCK.release()
 
     @staticmethod
     def get_assumed_role_session(role_arn: str):

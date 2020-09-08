@@ -40,6 +40,7 @@ class Environment:
 
     def __init__(self):
         self.id = None
+        self.region = None
         self.connection_steps = []
 
     def __hash__(self):
