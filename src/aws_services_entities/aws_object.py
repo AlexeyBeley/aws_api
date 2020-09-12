@@ -55,7 +55,25 @@ class AwsObject(object):
             formated_name = self.format_attr_name(attr_name)
         setattr(self, formated_name, value)
 
+    def init_date_attr_from_formatted_string(self, attr_name, value):
+        """
+        "%Y-%m-%d %H:%M:%S:%f%z"
+
+        :param attr_name:
+        :param value:
+        :return:
+        """
+
+        datetime_object = datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S:%f%z")
+        setattr(self, attr_name, datetime_object)
+
     def init_date_attr_from_cache_string(self, attr_name, value):
+        """
+
+        :param attr_name:
+        :param value:
+        :return:
+        """
         if "+" not in value:
             raise NotImplementedError
         # To use %z : "2017-07-26 15:54:10+01:00" -> "2017-07-26 15:54:10+0100"
@@ -63,7 +81,7 @@ class AwsObject(object):
         value = value[:index] + value[index+1:]
 
         # Example: strptime('2017-07-26 15:54:10+0000', '%Y-%m-%d %H:%M:%S%z')
-        datetime_object = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S%z')
+        datetime_object = datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S%z")
         setattr(self, attr_name, datetime_object)
 
     def init_attrs(self, dict_src, dict_options):
@@ -124,6 +142,8 @@ class AwsObject(object):
             return [AwsObject.convert_to_dict_static(value, custom_types=custom_types) for value in obj_src]
         elif isinstance(obj_src, AwsObject):
             return obj_src.convert_to_dict()
+        elif isinstance(obj_src, datetime.datetime):
+            pdb.set_trace()
         else:
             # In most cases it will become str
             # Ugly but efficient

@@ -47,7 +47,9 @@ def test_init_and_cache_lambdas():
         env.init_from_dict(dict_environ)
         Environment.set_environment(env)
         aws_api.init_lambdas()
-        pdb.set_trace()
+        #pdb.set_trace()
+        aws_api.cache_objects(aws_api.lambdas, "/Users/alexeybe/private/aws_api/ignore/cache_objects/lambdas.json")
+
     aws_api.cache_objects(aws_api.lambdas, "/Users/alexeybe/private/aws_api/ignore/cache_objects/lambdas.json")
 
     print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")

@@ -40,6 +40,18 @@ def test_init_from_cache_and_cleanup_s3_buckets():
 
         aws_api.cleanup_report_s3_buckets()
 
+def test_init_from_cache_and_cleanup_lambdas():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+
+        aws_api.init_lambdas(from_cache=True,
+                            cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/lambdas.json")
+
+        aws_api.cleanup_report_lambdas()
+
 
 if __name__ == "__main__":
-    test_init_from_cache_and_cleanup_s3_buckets()
+    #test_init_from_cache_and_cleanup_s3_buckets()
+    test_init_from_cache_and_cleanup_lambdas()

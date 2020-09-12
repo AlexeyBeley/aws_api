@@ -109,7 +109,7 @@ class AWSAPI(object):
         else:
             objects = self.lambda_client.get_all_lambdas(full_information=full_information)
 
-        self.lambdas = objects
+        self.lambdas += objects
 
     def init_load_balancers(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -228,6 +228,18 @@ class AWSAPI(object):
         ret = self.cleanup_report_dns_records()
 
         return ret
+
+    def cleanup_report_lambdas(self):
+        tb_ret = TextBlock("Lambdas cleanup")
+        limit = 100*1024*1024
+        for aws_lambda in self.lambdas:
+            if aws_lambda.code_size >= limit:
+                line = f"{aws_lambda.name}: {aws_lambda.code_size} > 100MB"
+                tb_ret.lines.append(line)
+            #pdb.set_trace()
+
+        pdb.set_trace()
+        return tb_ret
 
     def cleanup_report_s3_buckets(self):
         tb_ret = TextBlock("All buckets' keys")

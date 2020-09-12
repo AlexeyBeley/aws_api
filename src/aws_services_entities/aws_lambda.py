@@ -16,7 +16,7 @@ class AWSLambda(AwsObject):
             return
 
         init_options = {
-            "FunctionName": self.init_default_attr,
+            "FunctionName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
             "FunctionArn": self.init_default_attr,
             "Runtime": self.init_default_attr,
             "Role": self.init_default_attr,
@@ -25,7 +25,7 @@ class AWSLambda(AwsObject):
             "Description": self.init_default_attr,
             "Timeout": self.init_default_attr,
             "MemorySize": self.init_default_attr,
-            "LastModified": self.init_default_attr,
+            "LastModified": lambda attr_name, value: self.init_date_attr_from_formatted_string(attr_name, self.format_last_modified_time(value)),
             "CodeSha256": self.init_default_attr,
             "Version": self.init_default_attr,
             "VpcConfig": self.init_default_attr,
@@ -33,11 +33,15 @@ class AWSLambda(AwsObject):
             "TracingConfig": self.init_default_attr,
             "RevisionId": self.init_default_attr,
             "Layers": self.init_default_attr,
+            "DeadLetterConfig": self.init_default_attr,
                         }
 
         self.init_attrs(dict_src, init_options)
 
+    def format_last_modified_time(self, str_value):
+        pdb.set_trace()
+
     def _init_object_from_cache(self, dict_src):
-        options = {
+        options = {"last_modified": self.init_date_attr_from_formatted_string,
                    }
         self._init_from_cache(dict_src, options)

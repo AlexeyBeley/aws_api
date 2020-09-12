@@ -7,6 +7,9 @@ class Boto3Client(object):
     EXEC_COUNT = 0
     SESSIONS_MANAGER = SessionsManager()
     EXECUTION_RETRY_COUNT = 4
+    NEXT_PAGE_REQUEST_KEY = "NextToken"
+    NEXT_PAGE_RESPONSE_KEY = "NextToken"
+    NEXT_PAGE_INITIAL_KEY = None
 
     def __init__(self, client_name):
         """
@@ -50,15 +53,15 @@ class Boto3Client(object):
         if filters_req is None:
             filters_req = {}
 
-        starting_token = None
+        starting_token = self.NEXT_PAGE_INITIAL_KEY
         for retry_counter in range(self.EXECUTION_RETRY_COUNT):
             try:
                 print(f"Starting with : {starting_token}")
                 for _page in self.client.get_paginator(func_command.__name__).paginate(
-                        PaginationConfig={"NextToken": starting_token},
+                        PaginationConfig={self.NEXT_PAGE_REQUEST_KEY: starting_token},
                         **filters_req):
 
-                    starting_token = _page.get("NextToken")
+                    starting_token = _page.get(self.NEXT_PAGE_RESPONSE_KEY)
                     print(f"Updating '{func_command.__name__}' pager starting_token: {starting_token}")
 
                     Boto3Client.EXEC_COUNT += 1
@@ -68,7 +71,7 @@ class Boto3Client(object):
 
                     for response_obj in _page[return_string]:
                         yield response_obj
-
+                    #pdb.set_trace()
                     if starting_token is None:
                         return
             except Exception as e:
