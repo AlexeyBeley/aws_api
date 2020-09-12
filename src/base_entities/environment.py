@@ -5,23 +5,29 @@ from enum import Enum
 
 class ConnectionStep:
     class Type(Enum):
-        AWS_CREDENTIALS = 0
-        ASSUME_ROLE = 1
+        CREDENTIALS = 0
+        PROFILE = 1
+        ASSUME_ROLE = 2
 
     def __init__(self, dict_src):
         self.aws_access_key_id = None
         self.aws_secret_access_key = None
+        self.profile_name = None
         self.role_arn = None
         self.region = None
+        self.type = None
 
         if "region_mark" in dict_src:
             self.region = Region()
             self.region.region_mark = dict_src["region_mark"]
 
-        if "aws_credentials" in dict_src:
-            if dict_src["aws_credentials"] != "default":
-                raise NotImplementedError()
+        if "credentials" in dict_src:
+            raise NotImplementedError()
+        elif "profile" in dict_src:
+            self.type = ConnectionStep.Type.PROFILE
+            self.profile_name = dict_src["profile"]
         elif "assume_role" in dict_src:
+            self.type = ConnectionStep.Type.ASSUME_ROLE
             self.role_arn = dict_src["assume_role"]
         else:
             raise NotImplementedError(f"Unknown {dict_src}")
@@ -57,6 +63,10 @@ class Environment:
         :return:
         """
         self.id = dict_src["id"]
+
+        if "region_mark" in dict_src:
+            self.region = Region()
+            self.region.region_mark = dict_src["region_mark"]
 
         if "connection_steps" in dict_src:
             self._init_connection_steps_from_list(dict_src["connection_steps"])

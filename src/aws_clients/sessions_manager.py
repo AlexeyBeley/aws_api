@@ -5,6 +5,7 @@ import pdb
 import sys
 import datetime
 from dateutil.tz import tzlocal
+from typing import Any
 
 sys.path.insert(0, "/Users/alexeybe/private/aws_api/src/base_entities")
 from environment import Environment
@@ -38,8 +39,10 @@ class SessionsManager(object):
             acquired = SessionsManager.Connection.LOCK.acquire(blocking=False)
             try:
                 if acquired is True:
-                    self.clients[region_mark][client_name] = self.session.client(client_name, region_name=region_mark)
+                    if region_mark not in self.clients:
+                        self.clients[region_mark] = {}
 
+                    self.clients[region_mark][client_name] = self.session.client(client_name, region_name=region_mark)
                 else:
                     raise LockAcquiringFailError()
             finally:
@@ -64,12 +67,33 @@ class SessionsManager(object):
         return connection
 
     @staticmethod
+    def execute_connection_step(connection_step, session):
+        if connection_step.type == connection_step.Type.PROFILE:
+            if session is not None:
+                raise RuntimeError(f"Initial session is not None")
+
+            session = boto3.session.Session(profile_name=connection_step.profile_name,
+                                            region_name=connection_step.region.region_mark)
+        elif connection_step.type == connection_step.Type.ASSUME_ROLE:
+            session = SessionsManager.start_assuming_role(connection_step.role_arn, session)
+        else:
+            raise NotImplementedError(f"Unknown connection_step type: {connection_step.type}")
+
+        return session
+
+    @staticmethod
     def connect_session():
         environment = Environment.get_environment()
+        if len(environment.connection_steps) == 0:
+            raise RuntimeError(f"No connection steps defined for environment: '{environment.id}'")
 
-        session = boto3.session.Session(aws_access_key_id=environment.connection_steps[0].aws_access_key_id,
-                                        aws_secret_access_key=environment.connection_steps[0].aws_secret_access_key,
-                                        region_name=environment.connection_steps[0].region.region_mark)
+        session = None
+        for connection_step in environment.connection_steps:
+            session = SessionsManager.execute_connection_step(connection_step, session)
+
+        if session is None:
+            raise RuntimeError(f"Could not establish session for environment {environment.id}")
+
 
         return session
 
@@ -82,20 +106,20 @@ class SessionsManager(object):
         del SessionsManager.CONNECTIONS[SessionsManager.get_current_session()]
 
     @staticmethod
-    def get_assumed_role_session(role_arn: str):
+    def start_assuming_role(role_arn: str, session: Any):
         """
         Automatically refreshes sessions
         Shamelessly stolen from here:
         https://stackoverflow.com/questions/45518122/boto3-sts-assumerole-with-mfa-working-example
 
+        :param session:
         :param role_arn:
         :return: session
         """
 
-        base_session = SessionsManager.get_current_session() or SessionsManager.connect_session()
         fetcher = botocore.credentials.AssumeRoleCredentialFetcher(
-            client_creator=base_session._session.create_client,
-            source_credentials=base_session.get_credentials(),
+            client_creator=session._session.create_client,
+            source_credentials=session.get_credentials(),
             role_arn=role_arn,
             expiry_window_seconds=SessionsManager.ASSUME_ROLE_SESSION_EXPIRY_WINDOW_SECONDS
         )
@@ -109,12 +133,6 @@ class SessionsManager(object):
         botocore_session._credentials = creds
 
         return boto3.Session(botocore_session=botocore_session)
-
-    @staticmethod
-    def start_assuming_role(role_arn):
-        session = SessionsManager.get_assumed_role_session(role_arn)
-        #SessionsManager.add_new_session(session)
-        return session
 
     @staticmethod
     def stop_assuming_role():

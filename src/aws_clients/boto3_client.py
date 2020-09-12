@@ -1,10 +1,12 @@
 import pdb
+import time
 from sessions_manager import SessionsManager
 
 
 class Boto3Client(object):
     EXEC_COUNT = 0
     SESSIONS_MANAGER = SessionsManager()
+    EXECUTION_RETRY_COUNT = 4
 
     def __init__(self, client_name):
         """
@@ -48,11 +50,30 @@ class Boto3Client(object):
         if filters_req is None:
             filters_req = {}
 
-        for _page in self.client.get_paginator(func_command.__name__).paginate(**filters_req):
-            Boto3Client.EXEC_COUNT += 1
-            print("Executed API Calls Count:".format(Boto3Client.EXEC_COUNT))
-            for response_obj in _page[return_string]:
-                yield response_obj
+        starting_token = None
+        for retry_counter in range(self.EXECUTION_RETRY_COUNT):
+            try:
+                print(f"Starting with : {starting_token}")
+                for _page in self.client.get_paginator(func_command.__name__).paginate(
+                        PaginationConfig={"NextToken": starting_token},
+                        **filters_req):
+
+                    starting_token = _page.get("NextToken")
+                    print(f"Updating '{func_command.__name__}' pager starting_token: {starting_token}")
+
+                    Boto3Client.EXEC_COUNT += 1
+
+                    if return_string not in _page:
+                        return
+
+                    for response_obj in _page[return_string]:
+                        yield response_obj
+
+                    if starting_token is None:
+                        return
+            except Exception as e:
+                time.sleep(1)
+                print(f"Error: {e}")
 
     @classmethod
     def start_assuming_role(cls, role_arn):
@@ -71,7 +92,6 @@ class Boto3Client(object):
         :param filters_req: filters dict passed to the API client to filter the response
         :return: list of replies
         """
-        pdb.set_trace()
 
         if filters_req is None:
             filters_req = {}

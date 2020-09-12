@@ -13,6 +13,8 @@ class S3Bucket(AwsObject):
     def __init__(self, dict_src, from_cache=False):
         self.acl = None
         self.policy = None
+        self.bucket_objects = []
+
         super(S3Bucket, self).__init__(dict_src)
         if from_cache:
             self._init_bucket_from_cashe(dict_src)
@@ -50,17 +52,22 @@ class S3Bucket(AwsObject):
         if dict_src is not None:
             self.policy = S3Bucket.Policy(dict_src, from_cache=True)
 
+    def update_objects(self, lst_src):
+        for dict_object in lst_src:
+            bucket_object = S3Bucket.BucketObject(dict_object)
+            self.bucket_objects.append(bucket_object)
+
     def update_acl(self, lst_src):
         if self.acl is None:
             self.acl = S3Bucket.ACL(lst_src)
         else:
-            raise NotImplementedError
+            raise NotImplementedError()
 
     def update_policy(self, str_src):
         if self.policy is None:
             self.policy = S3Bucket.Policy(str_src)
         else:
-            raise NotImplementedError
+            raise NotImplementedError()
 
     class ACL(AwsObject):
         def __init__(self, src_data, from_cache=False):
@@ -146,3 +153,24 @@ class S3Bucket(AwsObject):
             except Exception:
                 print(dict_src)
                 raise
+
+    class BucketObject(AwsObject):
+        def __init__(self, src_data, from_cache=False):
+            self.key = None
+            super(S3Bucket.BucketObject, self).__init__(src_data)
+
+            if from_cache:
+                if type(src_data) is not dict:
+                    raise TypeError()
+                self._init_from_cache(src_data)
+                return
+
+            if type(src_data) is not dict:
+                raise TypeError()
+
+            self.key = src_data["Key"]
+
+        def _init_from_cache(self, dict_src):
+            options = {}
+            pdb.set_trace()
+            self._init_from_cache(dict_src, options)

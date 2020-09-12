@@ -28,6 +28,9 @@ from elbv2_target_group import ELBV2TargetGroup
 from elb_client import ELBClient
 from elb_load_balancer import ClassicLoadBalancer
 
+from lambda_client import LambdaClient
+from aws_lambda import AWSLambda
+
 from route53_client import Route53Client
 from route53_hosted_zone import HostedZone
 
@@ -42,11 +45,13 @@ from common_utils import CommonUtils
 from dns import DNS
 
 from environment import Environment
+from text_block import TextBlock
 
 
 class AWSAPI(object):
     def __init__(self):
         self.ec2_client = EC2Client()
+        self.lambda_client = LambdaClient()
         self.iam_client = IamClient()
         self.s3_client = S3Client()
         self.elbv2_client = ELBV2Client()
@@ -64,6 +69,7 @@ class AWSAPI(object):
         self.databases = []
         self.security_groups = []
         self.target_groups = []
+        self.lambdas = []
 
     def init_ec2_instances(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -71,7 +77,7 @@ class AWSAPI(object):
         else:
             objects = self.ec2_client.get_all_instances()
 
-        self.ec2_instances = objects
+        self.ec2_instances += objects
 
     def init_users(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -89,13 +95,21 @@ class AWSAPI(object):
 
         self.policies = objects
 
-    def init_s3_buckets(self, from_cache=False, cache_file=None):
+    def init_s3_buckets(self, from_cache=False, cache_file=None, full_information=True):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, S3Bucket)
         else:
-            objects = self.s3_client.get_all_buckets()
+            objects = self.s3_client.get_all_buckets(full_information=full_information)
 
         self.s3_buckets = objects
+
+    def init_lambdas(self, from_cache=False, cache_file=None, full_information=True):
+        if from_cache:
+            objects = self.load_objects_from_cache(cache_file, AWSLambda)
+        else:
+            objects = self.lambda_client.get_all_lambdas(full_information=full_information)
+
+        self.lambdas = objects
 
     def init_load_balancers(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -214,6 +228,18 @@ class AWSAPI(object):
         ret = self.cleanup_report_dns_records()
 
         return ret
+
+    def cleanup_report_s3_buckets(self):
+        tb_ret = TextBlock("All buckets' keys")
+        for bucket in self.s3_buckets:
+            print(bucket.name)
+            bucket_objects = list(self.s3_client.yield_bucket_objects(bucket))
+
+            print(f"{bucket.name}: {len(bucket_objects)}")
+            tb_ret.lines.append(f"{bucket.name}: {len(bucket_objects)}")
+
+        pdb.set_trace()
+        return tb_ret
 
     def cleanup_load_balancers(self):
         unuzed_load_balancers = []
