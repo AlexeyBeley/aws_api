@@ -50,22 +50,22 @@ class AwsObject(object):
     def id(self, value):
         self._id = value
 
-    def init_default_attr(self, attr_name, value, formated_name=None):
-        if formated_name is None:
-            formated_name = self.format_attr_name(attr_name)
-        setattr(self, formated_name, value)
+    def init_default_attr(self, attr_name, value, formatted_name=None):
+        if formatted_name is None:
+            formatted_name = self.format_attr_name(attr_name)
+        setattr(self, formatted_name, value)
 
     def init_date_attr_from_formatted_string(self, attr_name, value):
         """
-        "%Y-%m-%d %H:%M:%S:%f%z"
+        "%Y-%m-%d %H:%M:%S.%f%z"
 
         :param attr_name:
         :param value:
         :return:
         """
 
-        datetime_object = datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S:%f%z")
-        setattr(self, attr_name, datetime_object)
+        datetime_object = datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f%z")
+        self.init_default_attr(attr_name, datetime_object)
 
     def init_date_attr_from_cache_string(self, attr_name, value):
         """
@@ -143,7 +143,7 @@ class AwsObject(object):
         elif isinstance(obj_src, AwsObject):
             return obj_src.convert_to_dict()
         elif isinstance(obj_src, datetime.datetime):
-            pdb.set_trace()
+            return obj_src.strftime("%Y-%m-%d %H:%M:%S.%f%z")
         else:
             # In most cases it will become str
             # Ugly but efficient

@@ -22,9 +22,9 @@ class IamPolicy(AwsObject):
             return
 
         init_options = {
-                        "PolicyId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                        "PolicyId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
                         "Path": self.init_default_attr,
-                        "PolicyName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "PolicyName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "Arn": self.init_default_attr,
                         "CreateDate": self.init_default_attr,
                         "DefaultVersionId": self.init_default_attr,
@@ -36,16 +36,25 @@ class IamPolicy(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_policy_from_cashe(self, dict_src):
-        options = {'create_date': self.init_date_attr_from_cache_string,
-                   'update_date':  self.init_date_attr_from_cache_string}
+        options = {'create_date': self.init_date_attr_from_formatted_string,
+                   'update_date':  self.init_date_attr_from_formatted_string}
 
         self._init_from_cache(dict_src, options)
 
     def update_statements(self, dict_src):
-        init_options = {
-                        "CreateDate": self.init_default_attr,
+        init_options = {"CreateDate": self.init_default_attr,
                         "IsDefaultVersion": self.init_default_attr,
                         "VersionId": self.init_default_attr,
-                        "Document": self.init_default_attr}
+                        "Document": self.init_document
+                        }
 
         self.init_attrs(dict_src, init_options)
+
+    def init_document(self, _, value):
+        document = IamPolicy.Document(value)
+        self.init_default_attr("document", document)
+
+    class Document(AwsObject):
+        def __init__(self, dict_src):
+            pdb.set_trace()
+

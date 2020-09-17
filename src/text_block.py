@@ -5,3 +5,9 @@ class TextBlock(object):
         self.blocks = []
         self.footer = []
 
+    def __str__(self):
+        ret = self.header
+        ret += "\n" + "\n".join(self.lines)
+        ret += "\n" + "\n".join(self.blocks)
+        ret += "\n" + "\n".join(self.footer)
+        return ret

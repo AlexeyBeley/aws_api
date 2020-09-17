@@ -21,9 +21,9 @@ class IamUser(AwsObject):
             return
 
         init_options = {
-                        "UserId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                        "UserId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
                         "Path": self.init_default_attr,
-                        "UserName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "UserName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "Arn": self.init_default_attr,
                         "CreateDate": self.init_default_attr,
                         "PasswordLastUsed": self.init_default_attr}

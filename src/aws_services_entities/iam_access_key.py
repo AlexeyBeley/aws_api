@@ -18,7 +18,7 @@ class IamAccessKey(AwsObject):
         super(IamAccessKey, self).__init__(dict_src)
 
         init_options = {
-                        "AccessKeyId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                        "AccessKeyId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
                         "UserName": self.init_default_attr,
                         "Status": self.init_default_attr,
                         "CreateDate": self.init_default_attr}

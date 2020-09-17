@@ -24,7 +24,7 @@ class EC2Instance(AwsObject):
             return
 
         init_options = {
-                        "InstanceId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                        "InstanceId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
                         "NetworkInterfaces": self.init_interfaces,
                         "Tags": self.init_tags,
                         "AmiLaunchIndex": self.init_default_attr,
@@ -132,7 +132,7 @@ class EC2Instance(AwsObject):
                 return
 
             init_options = {
-                            "NetworkInterfaceId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                            "NetworkInterfaceId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
                             "PrivateIpAddress": self._init_private_ip_address,
                             "Attachment": self.init_default_attr,
                             "Description": self.init_default_attr,

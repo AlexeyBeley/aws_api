@@ -16,7 +16,7 @@ class AWSLambda(AwsObject):
             return
 
         init_options = {
-            "FunctionName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+            "FunctionName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
             "FunctionArn": self.init_default_attr,
             "Runtime": self.init_default_attr,
             "Role": self.init_default_attr,
@@ -38,8 +38,12 @@ class AWSLambda(AwsObject):
 
         self.init_attrs(dict_src, init_options)
 
-    def format_last_modified_time(self, str_value):
-        pdb.set_trace()
+    @staticmethod
+    def format_last_modified_time(str_value):
+        _date, _time = str_value.split("T")
+        _time, _micro_and_zone = _time.split(".")
+        _micro_and_zone = "000" + _micro_and_zone
+        return f"{_date} {_time}.{_micro_and_zone}"
 
     def _init_object_from_cache(self, dict_src):
         options = {"last_modified": self.init_date_attr_from_formatted_string,

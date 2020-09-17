@@ -41,21 +41,67 @@ def test_init_and_cache_s3_buckets():
     assert isinstance(aws_api.s3_buckets, list)
 
 
+def test_init_and_cache_s3_bucket_objects():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        #aws_api.init_s3_buckets()
+        aws_api.init_s3_buckets(from_cache=True,
+                                cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json")
+
+        aws_api.init_and_cache_s3_bucket_objects("/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects")
+
+        pdb.set_trace()
+
+    print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")
+    assert isinstance(aws_api.s3_buckets, list)
+
+
 def test_init_and_cache_lambdas():
     for dict_environ in ignore_me.environments:
         env = Environment()
         env.init_from_dict(dict_environ)
         Environment.set_environment(env)
         aws_api.init_lambdas()
-        #pdb.set_trace()
-        aws_api.cache_objects(aws_api.lambdas, "/Users/alexeybe/private/aws_api/ignore/cache_objects/lambdas.json")
 
     aws_api.cache_objects(aws_api.lambdas, "/Users/alexeybe/private/aws_api/ignore/cache_objects/lambdas.json")
 
     print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")
     assert isinstance(aws_api.s3_buckets, list)
 
+
+def test_init_and_cache_iam_roles():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_iam_policies(from_cache=True, cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/iam_policies.json")
+        aws_api.init_iam_roles()
+        aws_api.cache_objects(aws_api.iam_roles, "/Users/alexeybe/private/aws_api/ignore/cache_objects/iam_roles.json")
+        break
+
+    print(f"len(iam_roles) = {len(aws_api.iam_roles)}")
+    assert isinstance(aws_api.iam_roles, list)
+
+
+def test_init_and_cache_iam_policies():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_iam_policies()
+        aws_api.cache_objects(aws_api.iam_policies, "/Users/alexeybe/private/aws_api/ignore/cache_objects/iam_policies.json")
+        break
+
+    print(f"len(iam_roles) = {len(aws_api.iam_policies)}")
+    assert isinstance(aws_api.iam_policies, list)
+
+
 if __name__ == "__main__":
     #test_init_and_cache_ec2instances()
     #test_init_and_cache_s3_buckets()
-    test_init_and_cache_lambdas()
+    #test_init_and_cache_s3_bucket_objects()
+    #test_init_and_cache_lambdas()
+    #test_init_and_cache_iam_roles()
+    test_init_and_cache_iam_policies()

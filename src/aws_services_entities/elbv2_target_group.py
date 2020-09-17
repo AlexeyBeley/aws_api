@@ -17,8 +17,8 @@ class ELBV2TargetGroup(AwsObject):
             return
         self.target_health = None
         init_options = {
-                        "TargetGroupArn": lambda x, y: self.init_default_attr(x, y, formated_name="arn"),
-                        "TargetGroupName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "TargetGroupArn": lambda x, y: self.init_default_attr(x, y, formatted_name="arn"),
+                        "TargetGroupName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "Protocol": self.init_default_attr,
                         "Port": self.init_default_attr,
                         "VpcId": self.init_default_attr,

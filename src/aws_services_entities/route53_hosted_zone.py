@@ -18,8 +18,8 @@ class HostedZone(AwsObject):
             return
 
         init_options = {
-                        "Id": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
-                        "Name": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "Id": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
+                        "Name": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "CallerReference": self.init_default_attr,
                         "Config": self.init_default_attr,
                         "ResourceRecordSetCount": self.init_default_attr,
@@ -50,7 +50,7 @@ class HostedZone(AwsObject):
                 return
 
             init_options = {
-                "Name": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                "Name": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                 "Type": self.init_default_attr,
                 "AliasTarget": self.init_default_attr,
                 "TTL": self.init_default_attr,

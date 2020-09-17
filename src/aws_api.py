@@ -40,10 +40,12 @@ from rds_db_instance import DBInstance
 from iam_client import IamClient
 from iam_policy import IamPolicy
 from iam_user import IamUser
+from iam_role import IamRole
 
 from common_utils import CommonUtils
 from dns import DNS
 
+import datetime
 from environment import Environment
 from text_block import TextBlock
 
@@ -59,7 +61,7 @@ class AWSAPI(object):
         self.rds_client = RDSClient()
         self.route53_client = Route53Client()
 
-        self.policies = []
+        self.iam_policies = []
         self.ec2_instances = []
         self.s3_buckets = []
         self.load_balancers = []
@@ -70,6 +72,7 @@ class AWSAPI(object):
         self.security_groups = []
         self.target_groups = []
         self.lambdas = []
+        self.iam_roles = []
 
     def init_ec2_instances(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -87,13 +90,21 @@ class AWSAPI(object):
 
         self.users = objects
 
-    def init_policies(self, from_cache=False, cache_file=None):
+    def init_iam_roles(self, from_cache=False, cache_file=None):
+        if from_cache:
+            objects = self.load_objects_from_cache(cache_file, IamRole)
+        else:
+            objects = self.iam_client.get_all_roles(policies=self.iam_policies)
+
+        self.iam_roles += objects
+
+    def init_iam_policies(self, from_cache=False, cache_file=None):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, IamPolicy)
         else:
             objects = self.iam_client.get_all_policies()
 
-        self.policies = objects
+        self.iam_policies = objects
 
     def init_s3_buckets(self, from_cache=False, cache_file=None, full_information=True):
         if from_cache:
@@ -102,6 +113,43 @@ class AWSAPI(object):
             objects = self.s3_client.get_all_buckets(full_information=full_information)
 
         self.s3_buckets = objects
+
+    def init_and_cache_s3_bucket_objects(self, buckets_objects_cache_dir):
+        for bucket in self.s3_buckets:
+            bucket_dir = os.path.join(buckets_objects_cache_dir, bucket.name)
+
+            # todo: maybe remove?
+            if os.path.exists(bucket_dir):
+                continue
+
+            print(bucket.name)
+            bucket_objects = []
+            bucket_objects = list(self.s3_client.yield_bucket_objects(bucket))
+            len_bucket_objects = len(bucket_objects)
+
+            os.makedirs(bucket_dir, exist_ok=True)
+
+            if len_bucket_objects == 0:
+                continue
+
+            max_count = 100000
+
+            for i in range(int(len_bucket_objects/max_count) + 1):
+                first_key_index = max_count * i
+                last_key_index = (min(max_count * (i+1), len_bucket_objects)) - 1
+                file_name = bucket_objects[last_key_index].key.replace("/", "_")
+                file_path = os.path.join(bucket_dir, file_name)
+
+                #todo: maybe remove?
+                if os.path.exists(file_path):
+                    continue
+
+                data_to_dump = [obj.convert_to_dict() for obj in bucket_objects[first_key_index: last_key_index]]
+
+                with open(file_path, "w") as fd:
+                    json.dump(data_to_dump, fd)
+
+            print(f"{bucket.name}: {len(bucket_objects)}")
 
     def init_lambdas(self, from_cache=False, cache_file=None, full_information=True):
         if from_cache:
@@ -229,16 +277,30 @@ class AWSAPI(object):
 
         return ret
 
-    def cleanup_report_lambdas(self):
-        tb_ret = TextBlock("Lambdas cleanup")
-        limit = 100*1024*1024
+    def cleanup_report_lambdas_large_lambdas(self):
+        tb_ret = TextBlock("Large lambdas")
+        limit = 100 * 1024 * 1024
         for aws_lambda in self.lambdas:
             if aws_lambda.code_size >= limit:
                 line = f"{aws_lambda.name}: {aws_lambda.code_size} > 100MB"
                 tb_ret.lines.append(line)
-            #pdb.set_trace()
+        return tb_ret
 
+    def cleanup_report_lambdas_old_code(self):
+        tb_ret = TextBlock("Large lambdas")
+        year_ago = datetime.datetime.now() - datetime.timedelta(days=365)
+        for aws_lambda in self.lambdas:
+            pdb.set_trace()
+            if aws_lambda.last_modified < year_ago:
+                line = f"{aws_lambda.name}: {aws_lambda.last_modified} was more than a year ago"
+                tb_ret.lines.append(line)
         pdb.set_trace()
+        return tb_ret
+
+    def cleanup_report_lambdas(self):
+        tb_ret = TextBlock("Lambdas cleanup")
+        tb_ret.blocks.append(self.cleanup_report_lambdas_large_lambdas())
+        tb_ret.blocks.append(self.cleanup_report_lambdas_old_code())
         return tb_ret
 
     def cleanup_report_s3_buckets(self):
@@ -250,6 +312,59 @@ class AWSAPI(object):
             print(f"{bucket.name}: {len(bucket_objects)}")
             tb_ret.lines.append(f"{bucket.name}: {len(bucket_objects)}")
 
+        pdb.set_trace()
+        return tb_ret
+
+    def account_id_from_arn(self, arn):
+        if isinstance(arn, list):
+            print(arn)
+            pdb.set_trace()
+        if not arn.startswith("arn:aws:iam::"):
+            raise ValueError(arn)
+
+        account_id = arn[len("arn:aws:iam::"):]
+        account_id = account_id[:account_id.find(":")]
+        if not account_id.isdigit():
+            raise ValueError(arn)
+        return account_id
+
+    def cleanup_report_iam_roles(self):
+        """
+        1) Last activity
+
+        :return:
+        """
+        tb_ret = TextBlock("Iam Roles")
+        known_services = []
+        for iam_role in self.iam_roles:
+            role_account_id = self.account_id_from_arn(iam_role.arn)
+            doc = iam_role.assume_role_policy_document
+            for statement in doc["Statement"]:
+                if statement["Action"] == "sts:AssumeRole":
+                    if statement["Effect"] != "Allow":
+                        raise ValueError(statement["Effect"])
+                    if "Service" in statement["Principal"]:
+                        pass
+                        if isinstance(statement["Principal"]["Service"], list):
+                            for service_name in statement["Principal"]["Service"]:
+                                known_services.append(service_name)
+                        else:
+                            known_services.append(statement["Principal"]["Service"])
+                        #pdb.set_trace()
+                        #continue
+                    elif "AWS" in statement["Principal"]:
+                        principal_arn = statement["Principal"]["AWS"]
+                        principal_account_id = self.account_id_from_arn(principal_arn)
+                        if principal_account_id != role_account_id:
+                            print(statement)
+                elif statement["Action"] == "sts:AssumeRoleWithSAML":
+                    pass
+                elif statement["Action"] == "sts:AssumeRoleWithWebIdentity":
+                    pass
+                else:
+                    print(f"{iam_role.name}: {statement['Action']}")
+            #tb_ret.lines.append(f"{bucket.name}: {len(bucket_objects)}")
+        ret = set(known_services)
         pdb.set_trace()
         return tb_ret
 

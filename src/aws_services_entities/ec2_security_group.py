@@ -19,11 +19,11 @@ class EC2SecurityGroup(AwsObject):
             return
 
         init_options = {
-                        "GroupName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "GroupName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "Description": self.init_default_attr,
                         "IpPermissions": self.init_ip_permissions,
                         "OwnerId": self.init_default_attr,
-                        "GroupId": lambda x, y: self.init_default_attr(x, y, formated_name="id"),
+                        "GroupId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
                         "IpPermissionsEgress": self.init_ip_permissions,
                         "Tags": self.init_default_attr,
                         "VpcId": self.init_default_attr,

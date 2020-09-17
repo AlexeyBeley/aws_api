@@ -21,7 +21,7 @@ class S3Bucket(AwsObject):
             return
 
         init_options = {
-                        "Name": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "Name": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "CreationDate": self.init_default_attr
                         }
 
@@ -162,7 +162,7 @@ class S3Bucket(AwsObject):
             if from_cache:
                 if type(src_data) is not dict:
                     raise TypeError()
-                self._init_from_cache(src_data)
+                self._init_bucket_object_from_cache(src_data)
                 return
 
             if type(src_data) is not dict:
@@ -170,7 +170,6 @@ class S3Bucket(AwsObject):
 
             self.key = src_data["Key"]
 
-        def _init_from_cache(self, dict_src):
+        def _init_bucket_object_from_cache(self, dict_src):
             options = {}
-            pdb.set_trace()
             self._init_from_cache(dict_src, options)

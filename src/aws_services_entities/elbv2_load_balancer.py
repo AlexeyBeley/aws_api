@@ -17,8 +17,8 @@ class LoadBalancer(AwsObject):
             return
 
         init_options = {
-                        "LoadBalancerArn": lambda x, y: self.init_default_attr(x, y, formated_name="arn"),
-                        "LoadBalancerName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "LoadBalancerArn": lambda x, y: self.init_default_attr(x, y, formatted_name="arn"),
+                        "LoadBalancerName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "DNSName": self.init_default_attr,
                         "CanonicalHostedZoneId": self.init_default_attr,
                         "CreatedTime": self.init_default_attr,

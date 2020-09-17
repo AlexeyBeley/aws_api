@@ -17,7 +17,7 @@ class DBInstance(AwsObject):
             return
 
         init_options = {
-                        "LoadBalancerName": lambda x, y: self.init_default_attr(x, y, formated_name="name"),
+                        "LoadBalancerName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "DNSName": self.init_default_attr,
                         "DBInstanceIdentifier": self.init_db_instance_identifier,
                         "DBInstanceClass": self.init_default_attr,
