@@ -55,6 +55,50 @@ class IamPolicy(AwsObject):
         self.init_default_attr("document", document)
 
     class Document(AwsObject):
-        def __init__(self, dict_src):
-            pdb.set_trace()
+        def __init__(self, dict_src, from_cache=False):
+            super(IamPolicy.Document, self).__init__(dict_src, from_cache=from_cache)
+            self.statements = None
+            init_options = {"Version": self.init_default_attr,
+                            "Statement": self.init_statement,
+                            }
 
+            self.init_attrs(dict_src, init_options)
+
+        def init_statement(self, key, lst_src):
+            for dict_src in lst_src:
+                statement = IamPolicy.Document.Statement(dict_src)
+                self.statements.append(statement)
+
+        class Statement(AwsObject):
+            def __init__(self, dict_src, from_cache=False):
+                super(IamPolicy.Document.Statement, self).__init__(dict_src, from_cache=from_cache)
+                self.effect = None
+                self.actions = {}
+                self.resource = None
+
+                init_options = {"Sid": self.init_default_attr,
+                                "Effect": self.init_effect,
+                                "Action": self.init_action,
+                                "Resource": self.init_resource,
+                                }
+
+                self.init_attrs(dict_src, init_options)
+
+            def init_action(self, key, value):
+                pdb.set_trace()
+                if not isinstance(value, list):
+                    raise ValueError(value)
+                for str_action in value:
+                    service_name, action = str_action.split(":", 1)
+                    if service_name not in self.actions:
+                        self.actions[service_name] = []
+                    self.actions[service_name].append(action)
+
+            def init_resource(self, key, value):
+                pdb.set_trace()
+
+            def init_effect(self, key, value):
+                if value not in ["Allow"]:
+                    raise ValueError(value)
+
+                self.init_default_attr(key, value)

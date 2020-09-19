@@ -114,7 +114,8 @@ class AWSAPI(object):
 
         self.s3_buckets = objects
 
-    def init_and_cache_s3_bucket_objects(self, buckets_objects_cache_dir):
+    def init_and_cache_s3_bucket_objects_sync(self, buckets_objects_cache_dir):
+        max_count = 100000
         for bucket in self.s3_buckets:
             bucket_dir = os.path.join(buckets_objects_cache_dir, bucket.name)
 
@@ -123,7 +124,7 @@ class AWSAPI(object):
                 continue
 
             print(bucket.name)
-            bucket_objects = []
+            pdb.set_trace()
             bucket_objects = list(self.s3_client.yield_bucket_objects(bucket))
             len_bucket_objects = len(bucket_objects)
 
@@ -132,17 +133,11 @@ class AWSAPI(object):
             if len_bucket_objects == 0:
                 continue
 
-            max_count = 100000
-
             for i in range(int(len_bucket_objects/max_count) + 1):
                 first_key_index = max_count * i
                 last_key_index = (min(max_count * (i+1), len_bucket_objects)) - 1
                 file_name = bucket_objects[last_key_index].key.replace("/", "_")
                 file_path = os.path.join(bucket_dir, file_name)
-
-                #todo: maybe remove?
-                if os.path.exists(file_path):
-                    continue
 
                 data_to_dump = [obj.convert_to_dict() for obj in bucket_objects[first_key_index: last_key_index]]
 
@@ -150,6 +145,64 @@ class AWSAPI(object):
                     json.dump(data_to_dump, fd)
 
             print(f"{bucket.name}: {len(bucket_objects)}")
+
+    def init_and_cache_s3_bucket_objects(self, buckets_objects_cache_dir, bucket_name=None):
+        """
+        Starting with : None with args {'Bucket': 'protego-fsp-317307795746', 'StartAfter': ''}
+        Updating 'list_objects_v2' pager starting_token: None
+        Retrying attempt 2/4 Error: Has no return string
+Starting with : None with args {'Bucket': 'app-auto-deploy2', 'StartAfter': ''}
+Updating 'list_objects_v2' pager starting_token: None
+Retrying attempt 3/4 Error: Has no return string
+        :param buckets_objects_cache_dir:
+        :param bucket_name:
+        :return:
+        """
+        max_count = 100000
+        for bucket in self.s3_buckets:
+            if bucket_name is not None and bucket.name != bucket_name:
+                continue
+
+            bucket_dir = os.path.join(buckets_objects_cache_dir, bucket.name)
+            os.makedirs(bucket_dir, exist_ok=True)
+            print(bucket.name)
+            bucket_objects_iterator = self.s3_client.yield_bucket_objects(bucket)
+            total_counter = 0
+            counter = 0
+
+            buffer = []
+            for bucket_object in bucket_objects_iterator:
+                counter += 1
+                total_counter += 1
+                buffer.append(bucket_object)
+                print(f"counter : {counter}")
+                if counter < max_count:
+                    continue
+
+                print(f"{bucket.name} : writing {max_count}")
+                counter = 0
+                file_name = bucket_object.key.replace("/", "_")
+                file_path = os.path.join(bucket_dir, file_name)
+
+                data_to_dump = [obj.convert_to_dict() for obj in buffer]
+
+                buffer = []
+
+                with open(file_path, "w") as fd:
+                    json.dump(data_to_dump, fd)
+
+            print(f"{bucket.name}: {total_counter}")
+
+            if total_counter == 0 :
+                continue
+
+            file_name = bucket_object.key.replace("/", "_")
+            file_path = os.path.join(bucket_dir, file_name)
+
+            data_to_dump = [obj.convert_to_dict() for obj in buffer]
+
+            with open(file_path, "w") as fd:
+                json.dump(data_to_dump, fd)
 
     def init_lambdas(self, from_cache=False, cache_file=None, full_information=True):
         if from_cache:
