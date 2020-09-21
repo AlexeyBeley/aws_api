@@ -38,7 +38,8 @@ def test_init_from_cache_and_cleanup_s3_buckets():
         aws_api.init_s3_buckets(from_cache=True,
                             cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json")
 
-        aws_api.cleanup_report_s3_buckets()
+        #aws_api.cleanup_report_s3_buckets()
+        aws_api.cleanup_report_s3_buckets_objects("/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects")
 
 
 def test_cleanup_report_iam_roles():
@@ -65,7 +66,20 @@ def test_init_from_cache_and_cleanup_lambdas():
         aws_api.cleanup_report_lambdas()
 
 
+def test_cleanup_report_iam_policies():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+
+        aws_api.init_iam_policies(from_cache=True,
+                            cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/iam_policies.json")
+
+        aws_api.cleanup_report_iam_policies()
+
+
 if __name__ == "__main__":
-    #test_init_from_cache_and_cleanup_s3_buckets()
+    test_init_from_cache_and_cleanup_s3_buckets()
     #test_init_from_cache_and_cleanup_lambdas()
-    test_cleanup_report_iam_roles()
+    #test_cleanup_report_iam_roles()
+    #test_cleanup_report_iam_policies()

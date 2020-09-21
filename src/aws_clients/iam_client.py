@@ -67,8 +67,8 @@ class IamClient(Boto3Client):
     def update_iam_role_full_information(self, iam_role, policies):
         """
         list_role_policies:
-        ('RoleName', 'dome9qa-WebAppRole-XACEAB4O73X2')
-        ('PolicyName', 'AmazonEC2ReadOnlyAccess')
+        ('RoleName', '')
+        ('PolicyName', '')
         ('PolicyDocument', {'Version': '2012-10-17', 'Statement': [{'Effect': 'Allow', 'Action': 'ec2:Describe*', 'Resource': '*'}, {'Effect': 'Allow', 'Action': 'elasticloadbalancing:Describe*', 'Resource': '*'}, {'Effect': 'Allow', 'Action': ['cloudwatch:ListMetrics', 'cloudwatch:GetMetricStatistics', 'cloudwatch:Describe*'], 'Resource': '*'}, {'Effect': 'Allow', 'Action': 'autoscaling:Describe*', 'Resource': '*'}]})
         ('ResponseMetadata', {'RequestId': 'dcc6b611-786c-4ef7-a7d3-a7c391755326', 'HTTPStatusCode': 200, 'HTTPHeaders': {'x-amzn-requestid': 'dcc6b611-786c-4ef7-a7d3-a7c391755326', 'content-type': 'text/xml', 'content-length': '1963', 'date': 'Thu, 17 Sep 2020 07:49:30 GMT'}, 'RetryAttempts': 0})
 
@@ -76,8 +76,6 @@ class IamClient(Boto3Client):
         :param policies:
         :return:
         """
-        if iam_role.name != "dome9qa-WebAppRole-XACEAB4O73X2":
-            return
 
         self.update_iam_role_last_used(iam_role)
         self.update_iam_role_managed_policies(iam_role, policies)

@@ -1,6 +1,9 @@
 import pdb
 import time
 from sessions_manager import SessionsManager
+from h_logger import get_logger
+
+logger = get_logger()
 
 
 class Boto3Client(object):
@@ -57,17 +60,17 @@ class Boto3Client(object):
             filters_req = {}
 
         starting_token = self.NEXT_PAGE_INITIAL_KEY
+
         for retry_counter in range(self.EXECUTION_RETRY_COUNT):
             try:
-                print(f"Starting with : {starting_token} with args {filters_req}")
+                logger.info(f"Start paginating with starting_token: '{starting_token}' and args '{filters_req}'")
 
                 for _page in self.client.get_paginator(func_command.__name__).paginate(
                         PaginationConfig={self.NEXT_PAGE_REQUEST_KEY: starting_token},
                         **filters_req):
 
-                    #pdb.set_trace()
                     starting_token = _page.get(self.NEXT_PAGE_RESPONSE_KEY)
-                    print(f"Updating '{func_command.__name__}' pager starting_token: {starting_token}")
+                    logger.info(f"Updating '{func_command.__name__}' pagination starting_token: {starting_token}")
 
                     Boto3Client.EXEC_COUNT += 1
 
@@ -76,12 +79,11 @@ class Boto3Client(object):
 
                     for response_obj in _page[return_string]:
                         yield response_obj
-                    #pdb.set_trace()
                     if starting_token is None:
                         return
             except Exception as e:
                 time.sleep(1)
-                print(f"Retrying attempt {retry_counter}/{self.EXECUTION_RETRY_COUNT} Error: {e}")
+                logger.warning(f"Retrying '{func_command.__name__}' attempt {retry_counter}/{self.EXECUTION_RETRY_COUNT} Error: {e}")
 
     @classmethod
     def start_assuming_role(cls, role_arn):

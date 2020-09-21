@@ -157,3 +157,6 @@ class AwsObject(object):
 
     class UnknownKeyError(Exception):
         pass
+
+    class ParsingError(Exception):
+        pass

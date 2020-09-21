@@ -42,13 +42,19 @@ from iam_policy import IamPolicy
 from iam_user import IamUser
 from iam_role import IamRole
 
+from cloud_watch_logs_client import CloudWatchLogsClient
+from cloud_watch_log_group import CloudWatchLogGroup
+
 from common_utils import CommonUtils
 from dns import DNS
 
 import datetime
 from environment import Environment
 from text_block import TextBlock
+from h_logger import get_logger
 
+from collections import defaultdict
+logger = get_logger()
 
 class AWSAPI(object):
     def __init__(self):
@@ -60,6 +66,7 @@ class AWSAPI(object):
         self.elb_client = ELBClient()
         self.rds_client = RDSClient()
         self.route53_client = Route53Client()
+        self.cloud_watch_logs_client = CloudWatchLogsClient()
 
         self.iam_policies = []
         self.ec2_instances = []
@@ -73,6 +80,7 @@ class AWSAPI(object):
         self.target_groups = []
         self.lambdas = []
         self.iam_roles = []
+        self.cloud_watch_log_groups = []
 
     def init_ec2_instances(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -97,6 +105,14 @@ class AWSAPI(object):
             objects = self.iam_client.get_all_roles(policies=self.iam_policies)
 
         self.iam_roles += objects
+
+    def init_cloud_watch_log_groups(self, from_cache=False, cache_file=None):
+        if from_cache:
+            objects = self.load_objects_from_cache(cache_file, CloudWatchLogGroup)
+        else:
+            objects = self.cloud_watch_logs_client.get_cloud_watch_log_groups()
+
+        self.cloud_watch_log_groups = objects
 
     def init_iam_policies(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -356,7 +372,57 @@ Retrying attempt 3/4 Error: Has no return string
         tb_ret.blocks.append(self.cleanup_report_lambdas_old_code())
         return tb_ret
 
+    def cleanup_report_s3_buckets_objects(self, buckets_dir_path):
+        tb_ret = TextBlock("All buckets' keys")
+        #pdb.set_trace()
+        all_buckets = []
+
+        for bucket_dir in os.listdir(buckets_dir_path):
+            tb_ret_bucket = TextBlock(f"Bucket: {bucket_dir}")
+            by_year_split = defaultdict(lambda: {"keys": 0, "size": 0})  # {2020: {"keys": 1, "size": 1}}
+            logger.info(f"Init bucket in dir '{bucket_dir}'")
+
+            bucket_dir_path = os.path.join(buckets_dir_path, bucket_dir)
+            for objects_buffer_file in os.listdir(bucket_dir_path):
+                logger.info(f"Init objects chunk in dir {bucket_dir}/{objects_buffer_file}")
+                objects_buffer_file_path = os.path.join(bucket_dir_path, objects_buffer_file)
+
+                with open(objects_buffer_file_path) as fh:
+                    lst_objects = json.load(fh)
+
+                for dict_object in lst_objects:
+                    bucket_object = S3Bucket.BucketObject(dict_object, from_cache=True)
+                    by_year_split[bucket_object.last_modified.year]["keys"] += 1
+                    by_year_split[bucket_object.last_modified.year]["size"] += bucket_object.size
+            all_buckets.append((bucket_dir, by_year_split))
+            for year in sorted(by_year_split):
+                line = f"[{year}] keys: {CommonUtils.int_to_str(by_year_split[year]['keys'])} size: {CommonUtils.bytes_to_str(by_year_split[year]['size'])}"
+                tb_ret_bucket.lines.append(line)
+
+            if len(by_year_split) > 0:
+                tb_ret.blocks.append(tb_ret_bucket)
+
+            #pdb.set_trace()
+        tb_ret.blocks.append(self.cleanup_report_s3_buckets_objects_large(all_buckets))
+        pdb.set_trace()
+        return tb_ret
+
+    def cleanup_report_s3_buckets_objects_large(self, all_buckets):
+        tb_ret = TextBlock(header="Large buckets")
+        lst_buckets_total = []
+        for bucket_name, by_year_split in all_buckets:
+            bucket_total = sum([per_year_data["size"] for per_year_data in by_year_split.values()])
+            lst_buckets_total.append((bucket_name, bucket_total))
+
+        lst_buckets_total_sorted = sorted(lst_buckets_total, reverse=True, key=lambda x: x[1])
+        for name, size in lst_buckets_total_sorted[:20]:
+            tb_ret.lines.append(f"{name}: {CommonUtils.bytes_to_str(size)}")
+        pdb.set_trace()
+        return tb_ret
+
+
     def cleanup_report_s3_buckets(self):
+        raise NotImplementedError()
         tb_ret = TextBlock("All buckets' keys")
         for bucket in self.s3_buckets:
             print(bucket.name)
@@ -380,6 +446,38 @@ Retrying attempt 3/4 Error: Has no return string
         if not account_id.isdigit():
             raise ValueError(arn)
         return account_id
+
+    def cleanup_report_iam_policy_statements_optimize(self, policy):
+        """
+        1) action is not of the resource
+        2) resource has no action
+        :param policy:
+        :return:
+        """
+        tb_ret = TextBlock("Iam Policies optimize statements")
+        for statement in policy.document.statements:
+            action_services = [service_name for service_name in statement.actions]
+            for action_service in action_services:
+                for resource in statement.resources:
+                    if resource.startswith(f"arn:aws:{action_service}") or resource == "*" or resource.startswith(f"arn:aws:*"):
+                        break
+                else:
+                    pdb.set_trace()
+                    tb_ret.lines.append(f"{action_service} not found in resources")
+
+        return tb_ret
+
+    def cleanup_report_iam_policies_statements_optimize(self):
+        tb_ret = TextBlock("Iam Policies optimize statements")
+        for policy in self.iam_policies:
+            logger.info(f"Optimizing policy {policy.name}")
+            tb_ret.blocks.append(self.cleanup_report_iam_policy_statements_optimize(policy))
+
+        return tb_ret
+
+    def cleanup_report_iam_policies(self):
+        tb_ret = TextBlock("Iam Policies")
+        tb_ret.blocks.append(self.cleanup_report_iam_policies_statements_optimize())
 
     def cleanup_report_iam_roles(self):
         """

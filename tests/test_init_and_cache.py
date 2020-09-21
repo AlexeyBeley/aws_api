@@ -97,6 +97,17 @@ def test_init_and_cache_iam_policies():
     print(f"len(iam_roles) = {len(aws_api.iam_policies)}")
     assert isinstance(aws_api.iam_policies, list)
 
+def test_init_and_cache_cloudtrail_logs():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_cloud_watch_log_groups()
+        aws_api.cache_objects(aws_api.cloud_watch_log_groups, "/Users/alexeybe/private/aws_api/ignore/cache_objects/cloud_watch_log_groups.json")
+        break
+
+    print(f"len(cloud_watch_log_groups) = {len(aws_api.cloud_watch_log_groups)}")
+    assert isinstance(aws_api.cloud_watch_log_groups, list)
 
 if __name__ == "__main__":
     #test_init_and_cache_ec2instances()
@@ -104,4 +115,5 @@ if __name__ == "__main__":
     #test_init_and_cache_s3_bucket_objects()
     #test_init_and_cache_lambdas()
     #test_init_and_cache_iam_roles()
-    test_init_and_cache_iam_policies()
+    #test_init_and_cache_iam_policies()
+    test_init_and_cache_cloudtrail_logs()

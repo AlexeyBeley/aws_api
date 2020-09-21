@@ -52,9 +52,9 @@ class S3Bucket(AwsObject):
         if dict_src is not None:
             self.policy = S3Bucket.Policy(dict_src, from_cache=True)
 
-    def update_objects(self, lst_src):
+    def update_objects(self, lst_src, from_cache=False):
         for dict_object in lst_src:
-            bucket_object = S3Bucket.BucketObject(dict_object)
+            bucket_object = S3Bucket.BucketObject(dict_object, from_cache=from_cache)
             self.bucket_objects.append(bucket_object)
 
     def update_acl(self, lst_src):
@@ -173,3 +173,6 @@ class S3Bucket(AwsObject):
         def _init_bucket_object_from_cache(self, dict_src):
             options = {}
             self._init_from_cache(dict_src, options)
+
+            self.init_date_attr_from_formatted_string("LastModified", dict_src["dict_src"]["LastModified"])
+            self.size = dict_src["dict_src"]["Size"]

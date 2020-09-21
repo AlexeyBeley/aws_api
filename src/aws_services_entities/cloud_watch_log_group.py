@@ -3,44 +3,37 @@ import re
 
 import sys
 import os
-
+from common_utils import CommonUtils
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 
 from aws_object import AwsObject
 
 
-class IamPolicy(AwsObject):
+class CloudWatchLogGroup(AwsObject):
     def __init__(self, dict_src, from_cache=False):
         """
         Init with boto3 dict
         :param dict_src:
         """
-        self.document = None
 
-        super(IamPolicy, self).__init__(dict_src, from_cache=from_cache)
+        super(CloudWatchLogGroup, self).__init__(dict_src, from_cache=from_cache)
         if from_cache:
-            self._init_policy_from_cashe(dict_src)
+            self._init_cloud_watch_log_group_from_cashe(dict_src)
             return
 
         init_options = {
-                        "PolicyId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),
-                        "Path": self.init_default_attr,
-                        "PolicyName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
-                        "Arn": self.init_default_attr,
-                        "CreateDate": self.init_default_attr,
-                        "DefaultVersionId": self.init_default_attr,
-                        "AttachmentCount": self.init_default_attr,
-                        "PermissionsBoundaryUsageCount": self.init_default_attr,
-                        "IsAttachable": self.init_default_attr,
-                        "UpdateDate": self.init_default_attr}
+                        "logGroupName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
+                        "creationTime": self.init_default_attr,
+                        "metricFilterCount": self.init_default_attr,
+                        "arn": self.init_default_attr,
+                        "storedBytes": self.init_default_attr,
+                        "retentionInDays": self.init_default_attr,
+                        }
 
         self.init_attrs(dict_src, init_options)
 
     def _init_policy_from_cashe(self, dict_src):
-        options = {"create_date": self.init_date_attr_from_formatted_string,
-                   "update_date":  self.init_date_attr_from_formatted_string,
-                   "document": self.init_document_from_cache,
-                   }
+        options = {}
 
         self._init_from_cache(dict_src, options)
 
