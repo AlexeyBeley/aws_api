@@ -17,7 +17,7 @@ class S3Bucket(AwsObject):
 
         super(S3Bucket, self).__init__(dict_src)
         if from_cache:
-            self._init_bucket_from_cashe(dict_src)
+            self._init_bucket_from_cache(dict_src)
             return
 
         init_options = {
@@ -27,9 +27,9 @@ class S3Bucket(AwsObject):
 
         self.init_attrs(dict_src, init_options)
 
-    def _init_bucket_from_cashe(self, dict_src):
+    def _init_bucket_from_cache(self, dict_src):
         options = {
-                   'creation_date':  self.init_date_attr_from_cache_string,
+                   'creation_date':  self.init_date_attr_from_formatted_string,
                    'acl':  self._init_acl_from_cache,
                    'policy':  self._init_policy_from_cache,
                    }

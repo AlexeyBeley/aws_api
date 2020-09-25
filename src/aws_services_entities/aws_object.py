@@ -1,6 +1,7 @@
 import re
 import pdb
 import datetime
+from enum import Enum
 
 
 class AwsObject(object):
@@ -144,6 +145,8 @@ class AwsObject(object):
             return obj_src.convert_to_dict()
         elif isinstance(obj_src, datetime.datetime):
             return obj_src.strftime("%Y-%m-%d %H:%M:%S.%f%z")
+        elif isinstance(obj_src, Enum):
+            return obj_src.value
         else:
             # In most cases it will become str
             # Ugly but efficient

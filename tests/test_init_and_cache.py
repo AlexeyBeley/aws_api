@@ -27,6 +27,8 @@ def test_init_and_cache_ec2instances():
     print(f"len(instances) = {len(aws_api.ec2_instances)}")
     assert isinstance(aws_api.ec2_instances, list)
 
+s3_buckets_cache_file = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json"
+s3_objects_dir = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects"
 
 def test_init_and_cache_s3_buckets():
     for dict_environ in ignore_me.environments:
@@ -35,7 +37,7 @@ def test_init_and_cache_s3_buckets():
         Environment.set_environment(env)
         aws_api.init_s3_buckets()
         pdb.set_trace()
-    aws_api.cache_objects(aws_api.s3_buckets, "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json")
+    aws_api.cache_objects(aws_api.s3_buckets, s3_buckets_cache_file)
 
     print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")
     assert isinstance(aws_api.s3_buckets, list)
@@ -48,9 +50,9 @@ def test_init_and_cache_s3_bucket_objects():
         Environment.set_environment(env)
         #aws_api.init_s3_buckets()
         aws_api.init_s3_buckets(from_cache=True,
-                                cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json")
+                                cache_file=s3_buckets_cache_file)
 
-        aws_api.init_and_cache_s3_bucket_objects("/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects")
+        aws_api.init_and_cache_s3_bucket_objects(s3_objects_dir)
 
         pdb.set_trace()
 
@@ -115,5 +117,5 @@ if __name__ == "__main__":
     #test_init_and_cache_s3_bucket_objects()
     #test_init_and_cache_lambdas()
     #test_init_and_cache_iam_roles()
-    #test_init_and_cache_iam_policies()
-    test_init_and_cache_cloudtrail_logs()
+    test_init_and_cache_iam_policies()
+    #test_init_and_cache_cloudtrail_logs()

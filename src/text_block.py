@@ -11,3 +11,19 @@ class TextBlock(object):
         ret += "\n" + "\n".join([str(block) for block in self.blocks])
         ret += "\n" + "\n".join(self.footer)
         return ret
+
+    def format_pprint(self, shift=0):
+        header_shift = " "*shift
+        ret = f"{header_shift}* {self.header}"
+
+        if len(self.lines) > 0:
+            line_shift = " "*(shift+2)
+            ret += f"\n{line_shift}" + f"\n{line_shift}".join(self.lines)
+
+        if len(self.blocks) > 0:
+            ret += "\n" + "\n".join([block.format_pprint(shift+2) for block in self.blocks])
+
+        if len(self.footer) > 0:
+            ret += "\n" + "\n".join(self.footer)
+        return ret
+

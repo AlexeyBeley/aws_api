@@ -16,6 +16,7 @@ class ConnectionStep:
         self.role_arn = None
         self.region = None
         self.type = None
+        self.external_id = None
 
         if "region_mark" in dict_src:
             self.region = Region()
@@ -32,6 +33,8 @@ class ConnectionStep:
         else:
             raise NotImplementedError(f"Unknown {dict_src}")
 
+        if "external_id" in dict_src:
+            self.external_id = dict_src["external_id"]
 
 class Environment:
     _ENVIRONMENT = None

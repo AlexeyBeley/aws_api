@@ -70,7 +70,7 @@ class Boto3Client(object):
                         **filters_req):
 
                     starting_token = _page.get(self.NEXT_PAGE_RESPONSE_KEY)
-                    logger.info(f"Updating '{func_command.__name__}' pagination starting_token: {starting_token}")
+                    logger.info(f"Updating '{func_command.__name__}' {filters_req} pagination starting_token: {starting_token}")
 
                     Boto3Client.EXEC_COUNT += 1
 

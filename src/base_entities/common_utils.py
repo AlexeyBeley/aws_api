@@ -1,5 +1,5 @@
 import pdb
-
+import datetime
 
 class CommonUtils:
     @staticmethod
@@ -72,3 +72,7 @@ class CommonUtils:
             float_result = float(f"{quotient}.{int_percent_reminder}")
             return_number = str(round(float_result, 2))
         return f"{return_number} {mapping[key_limit]}"
+
+    @staticmethod
+    def timestamp_to_datetime(timestamp):
+        return datetime.datetime.fromtimestamp(timestamp)

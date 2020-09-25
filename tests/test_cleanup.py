@@ -38,8 +38,10 @@ def test_init_from_cache_and_cleanup_s3_buckets():
         aws_api.init_s3_buckets(from_cache=True,
                             cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json")
 
-        #aws_api.cleanup_report_s3_buckets()
-        aws_api.cleanup_report_s3_buckets_objects("/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects")
+        summarised_data_file = "/Users/alexeybe/private/aws_api/ignore/cleanup/us_stg/buckets.json"
+
+        aws_api.generate_summarised_s3_cleanup_data("/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects", summarised_data_file)
+        aws_api.cleanup_report_s3_buckets_objects(summarised_data_file)
 
 
 def test_cleanup_report_iam_roles():
@@ -79,7 +81,7 @@ def test_cleanup_report_iam_policies():
 
 
 if __name__ == "__main__":
-    test_init_from_cache_and_cleanup_s3_buckets()
+    #test_init_from_cache_and_cleanup_s3_buckets()
     #test_init_from_cache_and_cleanup_lambdas()
     #test_cleanup_report_iam_roles()
-    #test_cleanup_report_iam_policies()
+    test_cleanup_report_iam_policies()

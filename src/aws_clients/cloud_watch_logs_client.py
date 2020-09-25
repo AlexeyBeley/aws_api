@@ -13,16 +13,14 @@ class CloudWatchLogsClient(Boto3Client):
         client_name = "logs"
         super(CloudWatchLogsClient, self).__init__(client_name)
 
-    def get_cloud_watch_log_groups(self, full_information=False):
+    def get_cloud_watch_log_groups(self, full_information=True):
         final_result = list()
 
         for result in self.execute(self.client.describe_log_groups, "logGroups"):
             obj = CloudWatchLogGroup(result)
             if full_information:
                 self.update_log_group_full_information(obj)
-            #pdb.set_trace()
             final_result.append(obj)
-        pdb.set_trace()
         return final_result
 
     def update_log_group_full_information(self, obj):
@@ -31,6 +29,6 @@ class CloudWatchLogsClient(Boto3Client):
         :param obj:
         :return: None, raise if fails
         """
-        pdb.set_trace()
-        for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
-            obj.update_statements(response)
+
+        for response in self.execute(self.client.describe_log_streams, "logStreams", filters_req={"logGroupName": obj.name}):
+            obj.update_log_stream(response)

@@ -130,7 +130,7 @@ class AWSAPI(object):
 
         self.s3_buckets = objects
 
-    def init_and_cache_s3_bucket_objects_sync(self, buckets_objects_cache_dir):
+    def init_and_cache_s3_bucket_objects_synchronous(self, buckets_objects_cache_dir):
         max_count = 100000
         for bucket in self.s3_buckets:
             bucket_dir = os.path.join(buckets_objects_cache_dir, bucket.name)
@@ -164,12 +164,7 @@ class AWSAPI(object):
 
     def init_and_cache_s3_bucket_objects(self, buckets_objects_cache_dir, bucket_name=None):
         """
-        Starting with : None with args {'Bucket': 'protego-fsp-317307795746', 'StartAfter': ''}
-        Updating 'list_objects_v2' pager starting_token: None
-        Retrying attempt 2/4 Error: Has no return string
-Starting with : None with args {'Bucket': 'app-auto-deploy2', 'StartAfter': ''}
-Updating 'list_objects_v2' pager starting_token: None
-Retrying attempt 3/4 Error: Has no return string
+
         :param buckets_objects_cache_dir:
         :param bucket_name:
         :return:
@@ -181,7 +176,8 @@ Retrying attempt 3/4 Error: Has no return string
 
             bucket_dir = os.path.join(buckets_objects_cache_dir, bucket.name)
             os.makedirs(bucket_dir, exist_ok=True)
-            print(bucket.name)
+            logger.info(f"Starting collecting from bucket: {bucket.name}")
+
             bucket_objects_iterator = self.s3_client.yield_bucket_objects(bucket)
             total_counter = 0
             counter = 0
@@ -191,11 +187,11 @@ Retrying attempt 3/4 Error: Has no return string
                 counter += 1
                 total_counter += 1
                 buffer.append(bucket_object)
-                print(f"counter : {counter}")
+
                 if counter < max_count:
                     continue
-
-                print(f"{bucket.name} : writing {max_count}")
+                logger.info(f"Bucket objects total_counter: {total_counter}")
+                logger.info(f"Writing chunk of {max_count} objects for bucket {bucket.name}")
                 counter = 0
                 file_name = bucket_object.key.replace("/", "_")
                 file_path = os.path.join(bucket_dir, file_name)
@@ -207,9 +203,9 @@ Retrying attempt 3/4 Error: Has no return string
                 with open(file_path, "w") as fd:
                     json.dump(data_to_dump, fd)
 
-            print(f"{bucket.name}: {total_counter}")
+            logger.info(f"Bucket {bucket.name} total count of objects: {total_counter}")
 
-            if total_counter == 0 :
+            if total_counter == 0:
                 continue
 
             file_name = bucket_object.key.replace("/", "_")
@@ -372,14 +368,57 @@ Retrying attempt 3/4 Error: Has no return string
         tb_ret.blocks.append(self.cleanup_report_lambdas_old_code())
         return tb_ret
 
-    def cleanup_report_s3_buckets_objects(self, buckets_dir_path):
-        tb_ret = TextBlock("All buckets' keys")
-        #pdb.set_trace()
-        all_buckets = []
+    def cleanup_report_s3_buckets_objects(self, summarised_data_file):
+        with open(summarised_data_file) as fh:
+            all_buckets = json.load(fh)
 
+        by_bucket_sorted_data = dict()
+
+        for bucket_name, bucket_data in all_buckets.items():
+            by_bucket_sorted_data[bucket_name] = {"total_size": 0, "total_keys": 0, "years": {}}
+            logger.info(f"Init bucket '{bucket_name}'")
+
+            for year, year_data in sorted(bucket_data.items(), key=lambda x: x[0]):
+                year_dict = {"total_size": 0, "total_keys": 0, "months": {}}
+                by_bucket_sorted_data[bucket_name]["years"][year] = year_dict
+
+                for month, month_data in sorted(year_data.items(), key=lambda x: int(x[0])):
+                    year_dict["months"][month] = {"total_size": 0, "total_keys": 0}
+                    for day, day_data in month_data.items():
+                        year_dict["months"][month]["total_size"] += day_data["size"]
+                        year_dict["months"][month]["total_keys"] += day_data["keys"]
+                    year_dict["total_size"] += year_dict["months"][month]["total_size"]
+                    year_dict["total_keys"] += year_dict["months"][month]["total_keys"]
+
+                by_bucket_sorted_data[bucket_name]["total_size"] += year_dict["total_size"]
+                by_bucket_sorted_data[bucket_name]["total_keys"] += year_dict["total_keys"]
+
+        tb_ret = TextBlock("Buckets sizes report per years")
+        for bucket_name, bucket_data in sorted(by_bucket_sorted_data.items(), reverse=True, key=lambda x: x[1]["total_size"]):
+            tb_bucket = TextBlock(f"Bucket_Name: '{bucket_name}' size: {CommonUtils.bytes_to_str(bucket_data['total_size'])}, keys: {CommonUtils.int_to_str(bucket_data['total_keys'])}")
+
+            for year, year_data in bucket_data["years"].items():
+                tb_year = TextBlock(
+                        f"{year} size: {CommonUtils.bytes_to_str(year_data['total_size'])}, keys: {CommonUtils.int_to_str(year_data['total_keys'])}")
+
+                for month, month_data in year_data["months"].items():
+                    line = f"{month} size: {CommonUtils.bytes_to_str(month_data['total_size'])}, keys: {CommonUtils.int_to_str(month_data['total_keys'])}"
+                    tb_year.lines.append(line)
+
+                tb_bucket.blocks.append(tb_year)
+
+            tb_ret.blocks.append(tb_bucket)
+
+        print(tb_ret.format_pprint())
+        with open("./tmp_output.txt", "w") as fh:
+            fh.write(tb_ret.format_pprint())
+
+        return tb_ret
+
+    def generate_summarised_s3_cleanup_data(self, buckets_dir_path, summarised_data_file):
+        all_buckets = dict()
         for bucket_dir in os.listdir(buckets_dir_path):
-            tb_ret_bucket = TextBlock(f"Bucket: {bucket_dir}")
-            by_year_split = defaultdict(lambda: {"keys": 0, "size": 0})  # {2020: {"keys": 1, "size": 1}}
+            by_date_split = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {"keys": 0, "size": 0})))
             logger.info(f"Init bucket in dir '{bucket_dir}'")
 
             bucket_dir_path = os.path.join(buckets_dir_path, bucket_dir)
@@ -392,20 +431,11 @@ Retrying attempt 3/4 Error: Has no return string
 
                 for dict_object in lst_objects:
                     bucket_object = S3Bucket.BucketObject(dict_object, from_cache=True)
-                    by_year_split[bucket_object.last_modified.year]["keys"] += 1
-                    by_year_split[bucket_object.last_modified.year]["size"] += bucket_object.size
-            all_buckets.append((bucket_dir, by_year_split))
-            for year in sorted(by_year_split):
-                line = f"[{year}] keys: {CommonUtils.int_to_str(by_year_split[year]['keys'])} size: {CommonUtils.bytes_to_str(by_year_split[year]['size'])}"
-                tb_ret_bucket.lines.append(line)
-
-            if len(by_year_split) > 0:
-                tb_ret.blocks.append(tb_ret_bucket)
-
-            #pdb.set_trace()
-        tb_ret.blocks.append(self.cleanup_report_s3_buckets_objects_large(all_buckets))
-        pdb.set_trace()
-        return tb_ret
+                    by_date_split[bucket_object.last_modified.year][bucket_object.last_modified.month][bucket_object.last_modified.day]["keys"] += 1
+                    by_date_split[bucket_object.last_modified.year][bucket_object.last_modified.month][bucket_object.last_modified.day]["size"] += bucket_object.size
+            all_buckets[bucket_dir] = by_date_split
+        with open(summarised_data_file, "w") as fh:
+            json.dump(all_buckets, fh)
 
     def cleanup_report_s3_buckets_objects_large(self, all_buckets):
         tb_ret = TextBlock(header="Large buckets")
@@ -417,7 +447,7 @@ Retrying attempt 3/4 Error: Has no return string
         lst_buckets_total_sorted = sorted(lst_buckets_total, reverse=True, key=lambda x: x[1])
         for name, size in lst_buckets_total_sorted[:20]:
             tb_ret.lines.append(f"{name}: {CommonUtils.bytes_to_str(size)}")
-        pdb.set_trace()
+        #pdb.set_trace()
         return tb_ret
 
 
@@ -447,37 +477,69 @@ Retrying attempt 3/4 Error: Has no return string
             raise ValueError(arn)
         return account_id
 
+    def cleanup_report_iam_policy_statements_optimize_not_statement(self, statement):
+        """
+        https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+        :param statement:
+        :return:
+        """
+        lines = []
+
+        if statement.effect == statement.Effects.ALLOW:
+            if statement.not_action != {}:
+                lines.append(f"Potential risk in too permissive not_action. Effect: 'Allow', not_action: '{statement.not_action}'")
+            if statement.not_resource is not None:
+                lines.append(f"Potential risk in too permissive not_resource. Effect: 'Allow', not_resource: '{statement.not_resource}'")
+        return lines
+
+    def cleanup_report_iam_policy_statements_optimize_overlapping_statements(self, statements):
+        for i in range(len(statements)):
+            statement_1 = statements[i]
+            for j in range(i+1, len(statements)):
+                statement_2 = statements[j]
+                common_resource = statement_1.intersect_resource(statement_2)
+
+                if len(common_resource) == 0:
+                    continue
+                common_action = statement_1.intersect_action(statement_2)
+
+                if len(common_action) == 0:
+                    continue
+                pdb.set_trace()
+
     def cleanup_report_iam_policy_statements_optimize(self, policy):
         """
         1) action is not of the resource
         2) resource has no action
+        3) effect allow + NotResources
         :param policy:
         :return:
         """
-        tb_ret = TextBlock("Iam Policies optimize statements")
-        for statement in policy.document.statements:
-            action_services = [service_name for service_name in statement.actions]
-            for action_service in action_services:
-                for resource in statement.resources:
-                    if resource.startswith(f"arn:aws:{action_service}") or resource == "*" or resource.startswith(f"arn:aws:*"):
-                        break
-                else:
-                    pdb.set_trace()
-                    tb_ret.lines.append(f"{action_service} not found in resources")
 
+        tb_ret = TextBlock(f"Policy_Name: {policy.name}")
+        for statement in policy.document.statements:
+            lines = self.cleanup_report_iam_policy_statements_optimize_not_statement(statement)
+            if len(lines) > 0:
+                tb_ret.lines += lines
+        tb_overlap = self.cleanup_report_iam_policy_statements_optimize_overlapping_statements(policy.document.statements)
         return tb_ret
 
     def cleanup_report_iam_policies_statements_optimize(self):
         tb_ret = TextBlock("Iam Policies optimize statements")
         for policy in self.iam_policies:
             logger.info(f"Optimizing policy {policy.name}")
-            tb_ret.blocks.append(self.cleanup_report_iam_policy_statements_optimize(policy))
+            tb_policy = self.cleanup_report_iam_policy_statements_optimize(policy)
+            if tb_policy.blocks or tb_policy.lines:
+                tb_ret.blocks.append(tb_policy)
+                #pdb.set_trace()
 
+        print(tb_ret.format_pprint())
         return tb_ret
 
     def cleanup_report_iam_policies(self):
         tb_ret = TextBlock("Iam Policies")
         tb_ret.blocks.append(self.cleanup_report_iam_policies_statements_optimize())
+        return tb_ret
 
     def cleanup_report_iam_roles(self):
         """

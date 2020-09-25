@@ -68,6 +68,11 @@ class SessionsManager(object):
 
     @staticmethod
     def execute_connection_step(connection_step, session):
+        if connection_step.external_id is not None:
+            extra_args = {"ExternalId": connection_step.external_id}
+        else:
+            extra_args = None
+
         if connection_step.type == connection_step.Type.PROFILE:
             if session is not None:
                 raise RuntimeError(f"Initial session is not None")
@@ -75,7 +80,7 @@ class SessionsManager(object):
             session = boto3.session.Session(profile_name=connection_step.profile_name,
                                             region_name=connection_step.region.region_mark)
         elif connection_step.type == connection_step.Type.ASSUME_ROLE:
-            session = SessionsManager.start_assuming_role(connection_step.role_arn, session)
+            session = SessionsManager.start_assuming_role(connection_step.role_arn, session, extra_args=extra_args)
         else:
             raise NotImplementedError(f"Unknown connection_step type: {connection_step.type}")
 
@@ -106,12 +111,17 @@ class SessionsManager(object):
         del SessionsManager.CONNECTIONS[SessionsManager.get_current_session()]
 
     @staticmethod
-    def start_assuming_role(role_arn: str, session: Any):
+    def start_assuming_role(role_arn: str, session: Any, extra_args=None):
         """
         Automatically refreshes sessions
         Shamelessly stolen from here:
         https://stackoverflow.com/questions/45518122/boto3-sts-assumerole-with-mfa-working-example
 
+        :param extra_args: Any additional arguments to add to the assume
+            role request using the format of the botocore operation.
+            Possible keys include, but may not be limited to,
+            DurationSeconds, Policy, SerialNumber, ExternalId and
+            RoleSessionName.
         :param session:
         :param role_arn:
         :return: session
@@ -121,7 +131,8 @@ class SessionsManager(object):
             client_creator=session._session.create_client,
             source_credentials=session.get_credentials(),
             role_arn=role_arn,
-            expiry_window_seconds=SessionsManager.ASSUME_ROLE_SESSION_EXPIRY_WINDOW_SECONDS
+            expiry_window_seconds=SessionsManager.ASSUME_ROLE_SESSION_EXPIRY_WINDOW_SECONDS,
+            extra_args=extra_args
         )
 
         creds = botocore.credentials.DeferredRefreshableCredentials(
