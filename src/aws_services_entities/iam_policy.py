@@ -92,6 +92,7 @@ class IamPolicy(AwsObject):
                 self.statements.append(statement)
 
         class Statement(AwsObject):
+
             def __init__(self, dict_src, from_cache=False):
                 self.effect = None
                 self.action = {}
@@ -159,6 +160,34 @@ class IamPolicy(AwsObject):
                         return
                 raise ValueError(value)
 
+            def tail_position_regexes_intersect(self, str_1, str_2):
+                i = 0
+                while i < min(len(str_1), len(str_2)):
+                    if str_1[i] != str_2[i]:
+                        return
+                    i += 1
+
+                #if str_1 == 'aws-license-manager-service-*' and str_2 == 'aws-license-manager-service-*/resource_sync/*':
+                #    pdb.set_trace()
+
+                if len(str_1) == len(str_2):
+                    return str_1
+
+                if i == len(str_1):
+                    # "asd*", "asd12456"
+                    if str_1[i-1] == "*":
+                        return str_2
+                    # "asd" "asd*"
+                    if str_2[i] == "*":
+                        return str_1
+                elif i == len(str_2):
+                    if str_2[i-1] == "*":
+                        return str_1
+                    if str_1[i] == "*":
+                        return str_2
+                else:
+                    raise ValueError()
+
 
             def intersect_resource_value_regex(self, resource_1, resource_2):
                 """
@@ -169,14 +198,35 @@ class IamPolicy(AwsObject):
                 :return:
                 """
                 lst_ret = []
-                pdb.set_trace()
-                return lst_ret
+                lst_arn_1 = resource_1.split(":")
+                lst_arn_2 = resource_2.split(":")
+                i = 0
+
+                while i < min(len(lst_arn_1), len(lst_arn_2)):
+                    if lst_arn_1[i] == lst_arn_2[i]:
+                        lst_ret.append(lst_arn_1[i])
+                    elif lst_arn_1[i] == "*":
+                        lst_ret.append(lst_arn_2[i])
+                    elif lst_arn_2[i] == "*":
+                        lst_ret.append(lst_arn_1[i])
+                    elif "*" in lst_arn_1[i] or "*" in lst_arn_2[i]:
+                        ret =self.tail_position_regexes_intersect(lst_arn_1[i], lst_arn_2[i])
+                        if ret is None:
+                            return []
+                        lst_ret.append(ret)
+                    i += 1
+
+
+                return [":".join(lst_ret)]
 
             def intersect_resource(self, other):
+                if other.resource is None or self.resource is None:
+                    return []
                 lst_ret = []
                 for self_resource in self.resource:
                     if self_resource == "*":
                         return [other_resource for other_resource in other.resource]
+
                     for other_resource in other.resource:
                         if other_resource == "*":
                             return [self_resource for self_resource in self.resource]
@@ -185,12 +235,20 @@ class IamPolicy(AwsObject):
                             lst_ret += self.intersect_resource_value_regex(self_resource, other_resource)
                         elif self_resource == other_resource:
                             lst_ret.append(self_resource)
+
                 return lst_ret
 
             @staticmethod
             def check_service_intersect(service_name_1, service_name_2):
+                if service_name_1 == "*" or service_name_2 == "*":
+                    return True
+
                 if service_name_1 == service_name_2:
                     return True
+
+                if "*" not in service_name_1 and "*" not in service_name_2:
+                    return False
+
                 pdb.set_trace()
 
             @staticmethod
@@ -199,13 +257,21 @@ class IamPolicy(AwsObject):
                     return True
                 pdb.set_trace()
 
-            @staticmethod
-            def action_values_intersect(action_1, action_2):
+            def action_values_intersect(self, action_1, action_2):
+                if action_1 == "*":
+                    return [action_2]
+
+                if action_2 == "*":
+                    return [action_1]
+
                 lst_ret = []
-                if "*" in action_1:
-                    pdb.set_trace()
-                if "*" in action_2:
-                    pdb.set_trace()
+                if "*" in action_1 or "*" in action_2:
+                    ret = self.tail_position_regexes_intersect(action_1, action_2)
+                    if ret is not None:
+                        return [ret]
+                    else:
+                        return []
+
                 if action_1 == action_2:
                     return [action_1]
                 return lst_ret
@@ -235,32 +301,84 @@ class IamPolicy(AwsObject):
                 ARN built by this specs:
                 https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
                 """
+                INIT_PARTS = {1: "partition",
+                              2: "service",
+                              3: "region",
+                              4: "account_id",
+                              5: "resource_type",
+                              6: "resource_id",
+                              7: "resource_data_0",  # I want to vomit :(
+                              8: "resource_data_1"
+                              }
 
                 def __init__(self, str_src):
                     self.str_src = str_src
-                    self.partition = None
-                    self.service = None
-                    self.region = None
-                    self.account_id = None
-                    self.resource_type = None
-                    self.resource_id = None
                     self.init_from_regex_arn(str_src)
 
                 def init_from_regex_arn(self, arn):
                     """
+                    #aws s3api list-objects --bucket test-roles
+
                     arn:partition:service:region:account-id:resource-id
                     arn:partition:service:region:account-id:resource-type/resource-id
                     arn:partition:service:region:account-id:resource-type:resource-id
+
+                    You know what an asshole is? This is the guy which documents specific ARN structure and then
+                    uses another one in AWS CLoudWatch LogGroups:Streams This is why this function is an ugly piece of SH.
                     :param arn:
                     :return:
                     """
-                    init_sequance =  {0: self.partition,
-                                      1: self.service,
-                                      2: self.region,
-                                      3: self.account_id,
-                                      4: self.resource_type,
-                                      5: self.resource_id
-                                      }
-                    pdb.set_trace()
+
                     lst_arn = arn.split(":")
-                    while len(arn) > 0:
+                    if lst_arn[0] != "arn":
+                        if lst_arn[0] != "*":
+                            raise ValueError(lst_arn)
+
+                    part_index = 1
+                    while part_index < len(lst_arn):
+                        arn_part = lst_arn[part_index]
+
+                        if "*" in arn_part:
+                            if lst_arn[part_index] == "*":
+                                setattr(self, self.INIT_PARTS[part_index], arn_part)
+                            else:
+                                pdb.set_trace()
+                        else:
+                            setattr(self, self.INIT_PARTS[part_index], arn_part)
+
+                        part_index += 1
+
+                    while part_index < 9:
+                        setattr(self, self.INIT_PARTS[part_index], "*")
+                        part_index += 1
+
+                def intersect(self, other):
+                    lst_ret = []
+                    for value in self.INIT_PARTS.values():
+                        lst_part = self._intersect_arn_part(getattr(self, value), getattr(other, value))
+                        if len(lst_part) == 0:
+                            return []
+                        if len(lst_part) > 1:
+                            raise NotImplementedError(lst_part)
+                        lst_ret.append(lst_part[0])
+                    pdb.set_trace()
+                    return lst_ret
+
+                def _intersect_arn_part(self, self_part, other_part):
+                    if other_part == "*":
+                        return [self_part]
+
+                    if self_part == "*":
+                        return [other_part]
+
+                    if "*" not in self_part and "*" not in other_part:
+                        return [self_part] if self_part == other_part else None
+
+                    pdb.set_trace()
+
+                """
+                  191  sudo growpart /dev/xvda 1
+  192  lsblk
+  193  df -h
+  194  sudo resize2fs /dev/xvda1
+                """

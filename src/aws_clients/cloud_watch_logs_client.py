@@ -32,3 +32,7 @@ class CloudWatchLogsClient(Boto3Client):
 
         for response in self.execute(self.client.describe_log_streams, "logStreams", filters_req={"logGroupName": obj.name}):
             obj.update_log_stream(response)
+
+    def yield_log_group_streams(self, log_group_name):
+        for response in self.execute(self.client.describe_log_streams, "logStreams", filters_req={"logGroupName": log_group_name}):
+            yield response

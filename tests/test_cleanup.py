@@ -28,6 +28,9 @@ def test_init_and_cleanup_s3_buckets():
     print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")
     assert isinstance(aws_api.s3_buckets, list)
 
+buckets_cache_json_file = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json"
+summarised_data_file = "/Users/alexeybe/private/aws_api/ignore/cleanup/us_stg/buckets.json"
+bucket_objects_dir = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects"
 
 def test_init_from_cache_and_cleanup_s3_buckets():
     for dict_environ in ignore_me.environments:
@@ -35,12 +38,9 @@ def test_init_from_cache_and_cleanup_s3_buckets():
         env.init_from_dict(dict_environ)
         Environment.set_environment(env)
 
-        aws_api.init_s3_buckets(from_cache=True,
-                            cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json")
+        aws_api.init_s3_buckets(from_cache=True, cache_file=buckets_cache_json_file)
 
-        summarised_data_file = "/Users/alexeybe/private/aws_api/ignore/cleanup/us_stg/buckets.json"
-
-        aws_api.generate_summarised_s3_cleanup_data("/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects", summarised_data_file)
+        aws_api.generate_summarised_s3_cleanup_data(bucket_objects_dir, summarised_data_file)
         aws_api.cleanup_report_s3_buckets_objects(summarised_data_file)
 
 

@@ -114,6 +114,51 @@ class AWSAPI(object):
 
         self.cloud_watch_log_groups = objects
 
+    def init_and_cache_raw_large_cloud_watch_log_groups(self, cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+        log_groups = self.cloud_watch_logs_client.get_cloud_watch_log_groups(full_information=False)
+        for log_group in log_groups:
+            sub_dir = os.path.join(cache_dir, log_group.name.lower().replace("/", "_"))
+            os.makedirs(sub_dir, exist_ok=True)
+            logger.info(f"Starting collecting from bucket: {sub_dir}")
+
+            stream_generator = self.cloud_watch_logs_client.yield_log_group_streams(log_group.name)
+            self.cache_large_objects_from_generator(stream_generator, sub_dir)
+
+    def cache_large_objects_from_generator(self, generator, sub_dir):
+        total_counter = 0
+        counter = 0
+        max_count = 100000
+        buffer = []
+
+        for dict_src in generator:
+            counter += 1
+            total_counter += 1
+            buffer.append(dict_src)
+
+            if counter < max_count:
+                continue
+            logger.info(f"Objects total_counter: {total_counter}")
+            logger.info(f"Writing chunk of {max_count} to file {sub_dir}")
+
+            file_path = os.path.join(sub_dir, str(total_counter))
+
+            with open(file_path, "w") as fd:
+                json.dump(buffer, fd)
+
+            counter = 0
+            buffer = []
+
+        logger.info(f"Dir {sub_dir} total count of objects: {total_counter}")
+
+        if total_counter == 0:
+            return
+
+        file_path = os.path.join(sub_dir, str(total_counter))
+
+        with open(file_path, "w") as fd:
+            json.dump(buffer, fd)
+
     def init_iam_policies(self, from_cache=False, cache_file=None):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, IamPolicy)
@@ -164,7 +209,7 @@ class AWSAPI(object):
 
     def init_and_cache_s3_bucket_objects(self, buckets_objects_cache_dir, bucket_name=None):
         """
-
+        each bucket object represented as 388.586973867 B string in file
         :param buckets_objects_cache_dir:
         :param bucket_name:
         :return:
@@ -298,7 +343,7 @@ class AWSAPI(object):
     def stop_assuming_role():
         Boto3Client.stop_assuming_role()
 
-    def _get_down_instances(self):
+    def get_down_instances(self):
         ret = []
         for instance in self.ec2_instances:
             # 'state', {'Code': 80, 'Name': 'stopped'})
@@ -492,11 +537,24 @@ class AWSAPI(object):
                 lines.append(f"Potential risk in too permissive not_resource. Effect: 'Allow', not_resource: '{statement.not_resource}'")
         return lines
 
-    def cleanup_report_iam_policy_statements_optimize_overlapping_statements(self, statements):
+    def cleanup_report_iam_policy_statements_intersecting_statements(self, statements):
+        lines = []
         for i in range(len(statements)):
             statement_1 = statements[i]
             for j in range(i+1, len(statements)):
                 statement_2 = statements[j]
+                try:
+                    statement_1.condition
+                    continue
+                except Exception:
+                    pass
+
+                try:
+                    statement_2.condition
+                    continue
+                except Exception:
+                    pass
+
                 common_resource = statement_1.intersect_resource(statement_2)
 
                 if len(common_resource) == 0:
@@ -505,13 +563,19 @@ class AWSAPI(object):
 
                 if len(common_action) == 0:
                     continue
-                pdb.set_trace()
+                lines.append(f"Common Action: {common_action} Common resource {common_resource}")
+                lines.append(str(statement_1.dict_src))
+                lines.append(str(statement_2.dict_src))
+
+        return lines
 
     def cleanup_report_iam_policy_statements_optimize(self, policy):
         """
-        1) action is not of the resource
+        1) action is not of the resource - solved by AWS in creation process.
         2) resource has no action
         3) effect allow + NotResources
+        4) resource arn without existing resource
+        5) Resources completely included into other resource
         :param policy:
         :return:
         """
@@ -521,7 +585,8 @@ class AWSAPI(object):
             lines = self.cleanup_report_iam_policy_statements_optimize_not_statement(statement)
             if len(lines) > 0:
                 tb_ret.lines += lines
-        tb_overlap = self.cleanup_report_iam_policy_statements_optimize_overlapping_statements(policy.document.statements)
+        lines = self.cleanup_report_iam_policy_statements_intersecting_statements(policy.document.statements)
+        tb_ret.lines += lines
         return tb_ret
 
     def cleanup_report_iam_policies_statements_optimize(self):
