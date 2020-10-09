@@ -691,7 +691,7 @@ class AWSAPI(object):
             tb_ret.blocks.append(tb_log_group)
         return tb_ret
 
-    def cleanup_report_cloud_watch_log_groups(self, streams_dir, top_streams_count=100):
+    def cleanup_report_cloud_watch_log_groups(self, streams_dir, top_streams_count=1000):
         dict_total = {"size": 0, "streams_count": 0, "data": []}
         for log_group_subdir in os.listdir(streams_dir):
             dict_log_group = {"name": log_group_subdir, "size": 0, "streams_count": 0, "data": {"streams_by_size": [], "streams_by_date": []}}
