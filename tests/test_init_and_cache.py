@@ -14,7 +14,7 @@ logger = logging.Logger(__name__)
 from environment import Environment
 
 aws_api = AWSAPI()
-cache_base_path = "~/private/aws_api/ignore/cache_objects"
+cache_base_path = os.path.join(os.path.expanduser("~"), "private/aws_api/ignore/cache_objects")
 
 
 def test_init_and_cache_ec2instances():
