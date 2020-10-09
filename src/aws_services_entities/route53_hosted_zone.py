@@ -23,6 +23,7 @@ class HostedZone(AwsObject):
                         "CallerReference": self.init_default_attr,
                         "Config": self.init_default_attr,
                         "ResourceRecordSetCount": self.init_default_attr,
+                        "LinkedService": self.init_default_attr,
                         }
 
         self.init_attrs(dict_src, init_options)
@@ -55,6 +56,10 @@ class HostedZone(AwsObject):
                 "AliasTarget": self.init_default_attr,
                 "TTL": self.init_default_attr,
                 "ResourceRecords": self.init_default_attr,
+                "SetIdentifier": self.init_default_attr,
+                "Weight": self.init_default_attr,
+                "MultiValueAnswer": self.init_default_attr,
+                "HealthCheckId": self.init_default_attr,
             }
 
             self.init_attrs(dict_src, init_options)

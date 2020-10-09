@@ -134,6 +134,56 @@ def upload_to_s3(dir_to_upload, bucket_name):
             aws_api.s3_client.client.upload_file(os.path.join(root, file), bucket_name, os.path.join(root, file))
     return
 
+hosted_zones_cache_file = os.path.join(cache_base_path, "hosted_zones.json")
+
+def test_init_and_cache_hosted_zones():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_hosted_zones()
+        aws_api.cache_objects(aws_api.hosted_zones, hosted_zones_cache_file)
+        #pdb.set_trace()
+        break
+
+    assert isinstance(aws_api.iam_roles, list)
+
+
+classic_load_balancers_cache_file = os.path.join(cache_base_path, "classic_load_balancers.json")
+
+
+def test_init_and_cache_classic_load_balancers():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_classic_load_balancers()
+    aws_api.cache_objects(aws_api.classic_load_balancers, classic_load_balancers_cache_file)
+
+load_balancers_cache_file = os.path.join(cache_base_path, "load_balancers.json")
+
+def test_init_and_cache_load_balancers():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_load_balancers()
+        aws_api.cache_objects(aws_api.load_balancers, load_balancers_cache_file)
+        break
+
+
+security_groups_cache_file = os.path.join(cache_base_path, "security_groups.json")
+
+
+def test_init_and_cache_security_groups():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_security_groups()
+        #pdb.set_trace()
+        #break
+    aws_api.cache_objects(aws_api.security_groups, security_groups_cache_file)
 
 if __name__ == "__main__":
     #test_init_and_cache_ec2instances()
@@ -144,3 +194,7 @@ if __name__ == "__main__":
     #test_init_and_cache_iam_policies()
     #test_init_and_cache_cloudtrail_logs()
     test_init_and_cache_raw_large_cloud_watch_log_groups()
+    #test_init_and_cache_hosted_zones()
+    #test_init_and_cache_classic_load_balancers()
+    #test_init_and_cache_load_balancers()
+    #test_init_and_cache_security_groups()

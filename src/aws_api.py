@@ -54,6 +54,8 @@ from text_block import TextBlock
 from h_logger import get_logger
 
 from collections import defaultdict
+from dns_map import DNSMap
+
 logger = get_logger()
 
 class AWSAPI(object):
@@ -128,7 +130,7 @@ class AWSAPI(object):
     def cache_large_objects_from_generator(self, generator, sub_dir):
         total_counter = 0
         counter = 0
-        max_count = 100000
+        max_count = 100
         buffer = []
 
         for dict_src in generator:
@@ -275,7 +277,7 @@ class AWSAPI(object):
         else:
             objects = self.elbv2_client.get_all_load_balancers()
 
-        self.load_balancers = objects
+        self.load_balancers += objects
 
     def init_classic_load_balancers(self, from_cache=False, cache_file=None):
         if from_cache:
@@ -283,7 +285,7 @@ class AWSAPI(object):
         else:
             objects = self.elb_client.get_all_load_balancers()
 
-        self.classic_load_balancers = objects
+        self.classic_load_balancers += objects
 
     def init_hosted_zones(self, from_cache=False, cache_file=None, full_information=True):
         if from_cache:
@@ -314,7 +316,8 @@ class AWSAPI(object):
             objects = self.load_objects_from_cache(cache_file, EC2SecurityGroup)
         else:
             objects = self.ec2_client.get_all_security_groups(full_information=full_information)
-        self.security_groups = objects
+        pdb.set_trace()
+        self.security_groups += objects
 
     def load_objects_from_cache(self, file_name, class_type):
         with open(file_name) as fil:
@@ -600,6 +603,116 @@ class AWSAPI(object):
 
         print(tb_ret.format_pprint())
         return tb_ret
+
+    @staticmethod
+    def enter_n_sorted(items, get_item_weight, item_to_insert):
+        item_to_insert_weight = get_item_weight(item_to_insert)
+
+        if len(items) == 0:
+            raise ValueError("Not inited items (len=0)")
+
+        for i in range(len(items)):
+            if item_to_insert_weight < get_item_weight(items[i]):
+                logger.info(f"Found new item to insert with wait {item_to_insert_weight} at place {i} where current weight is {get_item_weight(items[i])}")
+                break
+
+        i -= 1
+
+        while i > -1:
+            logger.info(f"Updatig item at place {i}")
+            item_to_insert_tmp = items[i]
+            items[i] = item_to_insert
+            item_to_insert = item_to_insert_tmp
+            i -= 1
+
+    def cleanup_report_cloud_watch_log_groups_handle_sorted_streams(self, top_streams_count, dict_log_group, stream):
+        if top_streams_count < 0:
+            return
+
+        if dict_log_group["streams_count"] < top_streams_count:
+            dict_log_group["data"]["streams_by_size"].append(stream)
+            dict_log_group["data"]["streams_by_date"].append(stream)
+            return
+
+        if dict_log_group["streams_count"] == top_streams_count:
+            dict_log_group["data"]["streams_by_size"] = sorted(dict_log_group["data"]["streams_by_size"],
+                                                               key=lambda x: x["storedBytes"])
+            dict_log_group["data"]["streams_by_date"] = sorted(dict_log_group["data"]["streams_by_date"],
+                                                               key=lambda x: -(
+                                                               x["lastIngestionTime"] if "lastIngestionTime" in x else
+                                                               x["creationTime"]))
+            return
+
+        self.enter_n_sorted(dict_log_group["data"]["streams_by_size"], lambda x: x["storedBytes"], stream)
+        self.enter_n_sorted(dict_log_group["data"]["streams_by_date"],
+                        lambda x: -(x["lastIngestionTime"] if "lastIngestionTime" in x else x["creationTime"]), stream)
+
+    @staticmethod
+    def cleanup_report_cloud_watch_log_groups_prepare_tb(dict_total, top_streams_count):
+        tb_ret = TextBlock("Cloudwatch Logs and Streams")
+        line = f"size: {CommonUtils.bytes_to_str(dict_total['size'])} streams: {CommonUtils.int_to_str(dict_total['streams_count'])}"
+        tb_ret.lines.append(line)
+
+        for dict_log_group in dict_total["data"]:
+            tb_log_group = TextBlock(
+                f"{dict_log_group['name']} size: {CommonUtils.bytes_to_str(dict_log_group['size'])}, streams: {CommonUtils.int_to_str(dict_log_group['streams_count'])}")
+
+            lines = []
+            total_size = 0
+            for stream in dict_log_group["data"]["streams_by_size"]:
+                name = stream["logStreamName"]
+                size = stream["storedBytes"]
+                total_size += size
+                last_accessed = stream["lastIngestionTime"] if "lastIngestionTime" in stream else stream["creationTime"]
+                last_accessed = CommonUtils.timestamp_to_datetime(last_accessed / 1000.0)
+                lines.append(f"{name} size: {CommonUtils.bytes_to_str(size)}, last_accessed: {last_accessed}")
+
+            tb_streams_by_size = TextBlock(
+                f"{top_streams_count} largest streams' total size: {CommonUtils.bytes_to_str(total_size)}")
+            tb_streams_by_size.lines = lines
+            tb_log_group.blocks.append(tb_streams_by_size)
+            
+            if dict_log_group['streams_count'] > top_streams_count:
+                lines = []
+                total_size = 0
+                for stream in dict_log_group["data"]["streams_by_date"]:
+                    name = stream["logStreamName"]
+                    size = stream["storedBytes"]
+                    total_size += size
+                    last_accessed = stream["lastIngestionTime"] if "lastIngestionTime" in stream else stream["creationTime"]
+                    last_accessed = CommonUtils.timestamp_to_datetime(last_accessed / 1000.0)
+                    lines.append(f"{name} size: {CommonUtils.bytes_to_str(size)}, last_accessed: {last_accessed}")
+
+                tb_streams_by_date = TextBlock(
+                    f"{top_streams_count} ancient streams' total size: {CommonUtils.bytes_to_str(total_size)}")
+                tb_streams_by_date.lines = lines
+                tb_log_group.blocks.append(tb_streams_by_date)
+
+            tb_ret.blocks.append(tb_log_group)
+        return tb_ret
+
+    def cleanup_report_cloud_watch_log_groups(self, streams_dir, top_streams_count=100):
+        dict_total = {"size": 0, "streams_count": 0, "data": []}
+        for log_group_subdir in os.listdir(streams_dir):
+            dict_log_group = {"name": log_group_subdir, "size": 0, "streams_count": 0, "data": {"streams_by_size": [], "streams_by_date": []}}
+            log_group_full_path = os.path.join(streams_dir, log_group_subdir)
+
+            for chunk_file in os.listdir(log_group_full_path):
+                with open(os.path.join(log_group_full_path, chunk_file)) as fh:
+                    streams = json.load(fh)
+                for stream in streams:
+                    dict_log_group["size"] += stream["storedBytes"]
+                    dict_log_group["streams_count"] += 1
+                    self.cleanup_report_cloud_watch_log_groups_handle_sorted_streams(top_streams_count, dict_log_group, stream)
+
+            dict_total["size"] += dict_log_group["size"]
+            dict_total["streams_count"] += dict_log_group["streams_count"]
+            dict_total["data"].append(dict_log_group)
+        dict_total["data"] = sorted(dict_total["data"], key=lambda x: x["size"], reverse=True)
+        tb_ret = self.cleanup_report_cloud_watch_log_groups_prepare_tb(dict_total, top_streams_count)
+        print(tb_ret.format_pprint())
+        pdb.set_trace()
+        return
 
     def cleanup_report_iam_policies(self):
         tb_ret = TextBlock("Iam Policies")

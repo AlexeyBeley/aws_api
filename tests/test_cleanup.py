@@ -14,7 +14,7 @@ logger = logging.Logger(__name__)
 from environment import Environment
 
 aws_api = AWSAPI()
-
+cache_base_path = "/Users/alexeybe/private/aws_api/ignore/cache_objects"
 
 def test_init_and_cleanup_s3_buckets():
     for dict_environ in ignore_me.environments:
@@ -80,8 +80,32 @@ def test_cleanup_report_iam_policies():
         aws_api.cleanup_report_iam_policies()
 
 
+cloud_watch_cache = "cloud_watch_log_groups.json"
+cloud_watch_streams = "cloudwatch_log_groups_rnd"
+
+def test_cleanup_report_cloud_watch_logs():
+    for dict_environ in ignore_me.environments:
+        env = Environment()
+        env.init_from_dict(dict_environ)
+        Environment.set_environment(env)
+        aws_api.init_cloud_watch_log_groups(from_cache=True, cache_file=os.path.join(cache_base_path, cloud_watch_cache))
+        #pdb.set_trace()
+        aws_api.cleanup_report_cloud_watch_log_groups(os.path.join(cache_base_path, cloud_watch_streams))
+
+
+hosted_zones_cache_file = os.path.join(cache_base_path, "hosted_zones.json")
+
+
+def test_prepare_hosted_zones_mapping():
+    aws_api.init_hosted_zones(from_cache=True,
+                              cache_file=hosted_zones_cache_file)
+
+    aws_api.prepare_hosted_zones_mapping()
+    pdb.set_trace()
+
 if __name__ == "__main__":
     #test_init_from_cache_and_cleanup_s3_buckets()
     #test_init_from_cache_and_cleanup_lambdas()
     #test_cleanup_report_iam_roles()
-    test_cleanup_report_iam_policies()
+    #test_prepare_hosted_zones_mapping()
+    test_cleanup_report_cloud_watch_logs()

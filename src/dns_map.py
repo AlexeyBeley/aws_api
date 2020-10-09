@@ -1,3 +1,5 @@
+import pdb
+
 
 class DNSMapNode(object):
     POINTER = "pointer"
@@ -67,8 +69,8 @@ class DNSMap(object):
 
     def prepare_map_add_atype_records(self, dict_types):
         atype_records = [x for x in dict_types["A"]]
-        for hz, seed in atype_records:
 
+        for hz, seed in atype_records:
             if hasattr(seed, "alias_target"):
                 continue
 
