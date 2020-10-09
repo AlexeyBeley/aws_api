@@ -671,7 +671,7 @@ class AWSAPI(object):
                 f"{top_streams_count} largest streams' total size: {CommonUtils.bytes_to_str(total_size)}")
             tb_streams_by_size.lines = lines
             tb_log_group.blocks.append(tb_streams_by_size)
-            
+
             if dict_log_group['streams_count'] > top_streams_count:
                 lines = []
                 total_size = 0
