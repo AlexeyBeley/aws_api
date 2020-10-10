@@ -49,7 +49,7 @@ class IamRole(AwsObject):
                         "RoleName": lambda x, y: self.init_default_attr(x, y, formatted_name="name"),
                         "Arn": self.init_default_attr,
                         "CreateDate": self.init_default_attr,
-                        "AssumeRolePolicyDocument": self.init_assume_role_policy_document,
+                        "AssumeRolePolicyDocument": self.init_default_attr,
                         "Description": self.init_default_attr,
                         "RoleLastUsed": self.init_default_attr,
                         "Tags": self.init_default_attr,

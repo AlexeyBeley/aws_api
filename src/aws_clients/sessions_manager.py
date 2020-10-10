@@ -8,7 +8,7 @@ from dateutil.tz import tzlocal
 from typing import Any
 
 sys.path.insert(0, "/Users/alexeybe/private/aws_api/src/base_entities")
-from environment import Environment
+from aws_account import AWSAccount
 
 
 class LockAcquiringFailError(Exception):
@@ -27,8 +27,8 @@ class SessionsManager(object):
             self.clients = dict()
 
         def get_client(self, client_name):
-            environment = Environment.get_environment()
-            region_mark = environment.region.region_mark if environment.region is not None else self.session.region_name
+            aws_account = AWSAccount.get_aws_account()
+            region_mark = aws_account.region.region_mark if aws_account.region is not None else self.session.region_name
 
             if region_mark not in self.clients or client_name not in self.clients[region_mark]:
                 self.connect_client(region_mark, client_name)
@@ -55,14 +55,14 @@ class SessionsManager(object):
         :return: Connects Session if there is no one already
         """
 
-        environment = Environment.get_environment()
-        connection = SessionsManager.CONNECTIONS.get(environment)
+        aws_account = AWSAccount.get_aws_account()
+        connection = SessionsManager.CONNECTIONS.get(aws_account)
         if connection is not None:
             return connection
 
         session = SessionsManager.connect_session()
         connection = SessionsManager.Connection(session)
-        SessionsManager.add_new_connection(environment, connection)
+        SessionsManager.add_new_connection(aws_account, connection)
 
         return connection
 
@@ -88,23 +88,23 @@ class SessionsManager(object):
 
     @staticmethod
     def connect_session():
-        environment = Environment.get_environment()
-        if len(environment.connection_steps) == 0:
-            raise RuntimeError(f"No connection steps defined for environment: '{environment.id}'")
+        aws_account = AWSAccount.get_aws_account()
+        if len(aws_account.connection_steps) == 0:
+            raise RuntimeError(f"No connection steps defined for aws_account: '{aws_account.id}'")
 
         session = None
-        for connection_step in environment.connection_steps:
+        for connection_step in aws_account.connection_steps:
             session = SessionsManager.execute_connection_step(connection_step, session)
 
         if session is None:
-            raise RuntimeError(f"Could not establish session for environment {environment.id}")
+            raise RuntimeError(f"Could not establish session for aws_account {aws_account.id}")
 
 
         return session
 
     @staticmethod
-    def add_new_connection(environment, connection):
-        SessionsManager.CONNECTIONS[environment] = connection
+    def add_new_connection(aws_account, connection):
+        SessionsManager.CONNECTIONS[aws_account] = connection
 
     @staticmethod
     def delete_current_session():

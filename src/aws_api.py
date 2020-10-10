@@ -49,7 +49,6 @@ from common_utils import CommonUtils
 from dns import DNS
 
 import datetime
-from environment import Environment
 from text_block import TextBlock
 from h_logger import get_logger
 
@@ -130,7 +129,7 @@ class AWSAPI(object):
     def cache_large_objects_from_generator(self, generator, sub_dir):
         total_counter = 0
         counter = 0
-        max_count = 100
+        max_count = 100000
         buffer = []
 
         for dict_src in generator:
@@ -691,7 +690,7 @@ class AWSAPI(object):
             tb_ret.blocks.append(tb_log_group)
         return tb_ret
 
-    def cleanup_report_cloud_watch_log_groups(self, streams_dir, top_streams_count=1000):
+    def cleanup_report_cloud_watch_log_groups(self, streams_dir, top_streams_count=100):
         dict_total = {"size": 0, "streams_count": 0, "data": []}
         for log_group_subdir in os.listdir(streams_dir):
             dict_log_group = {"name": log_group_subdir, "size": 0, "streams_count": 0, "data": {"streams_by_size": [], "streams_by_date": []}}

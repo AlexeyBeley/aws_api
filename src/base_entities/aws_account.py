@@ -36,16 +36,16 @@ class ConnectionStep:
         if "external_id" in dict_src:
             self.external_id = dict_src["external_id"]
 
-class Environment:
+class AWSAccount:
     _ENVIRONMENT = None
 
     @staticmethod
-    def get_environment():
-        return Environment._ENVIRONMENT
+    def get_aws_account():
+        return AWSAccount._ENVIRONMENT
 
     @staticmethod
-    def set_environment(value):
-        Environment._ENVIRONMENT = value
+    def set_aws_account(value):
+        AWSAccount._ENVIRONMENT = value
 
     def __init__(self):
         self.id = None
