@@ -28,6 +28,7 @@ class S3Client(Boto3Client):
 
     def get_all_buckets(self, full_information=True):
         final_result = list()
+
         all_buckets = list(self.execute(self.client.list_buckets, "Buckets"))
         len_all_buckets = len(all_buckets)
 

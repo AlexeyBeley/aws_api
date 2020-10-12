@@ -13,52 +13,48 @@ import logging
 logger = logging.Logger(__name__)
 from aws_account import AWSAccount
 
-aws_api = AWSAPI()
-cache_base_path = os.path.join(os.path.expanduser("~"), "private/aws_api/ignore/cache_objects")
+# Set account here:
+tested_account = ignore_me.acc_rnd
+AWSAccount.set_aws_account(tested_account)
 
+aws_api = AWSAPI()
+
+cache_base_path = os.path.join(os.path.expanduser("~"), f"private/aws_api/ignore/cache_objects_{tested_account.name}")
+s3_buckets_cache_file = os.path.join(cache_base_path, "s3_buckets.json")
+ec2_instances_cache_file = os.path.join(cache_base_path, "ec2_instances.json")
+s3_objects_dir = os.path.join(cache_base_path, "s3_buckets_objects")
+cloudwatch_log_groups_dir = os.path.join(cache_base_path, "cloudwatch_log_groups")
 
 def test_init_and_cache_ec2instances():
-    for dict_environ in ignore_me.aws_accounts:
-        env = AWSAccount()
-        env.init_from_dict(dict_environ)
-        AWSAccount.set_aws_account(env)
-        aws_api.init_ec2_instances()
-    aws_api.cache_objects(aws_api.ec2_instances, "/Users/alexeybe/private/aws_api/ignore/cache_objects/ec2_instances.json")
-
+    aws_api.init_ec2_instances()
+    aws_api.cache_objects(aws_api.ec2_instances, ec2_instances_cache_file)
     print(f"len(instances) = {len(aws_api.ec2_instances)}")
     assert isinstance(aws_api.ec2_instances, list)
 
-s3_buckets_cache_file = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets.json"
-s3_objects_dir = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects"
 
 def test_init_and_cache_s3_buckets():
-    for dict_environ in ignore_me.aws_accounts:
-        env = AWSAccount()
-        env.init_from_dict(dict_environ)
-        AWSAccount.set_aws_account(env)
-        aws_api.init_s3_buckets()
-        pdb.set_trace()
+    aws_api.init_s3_buckets()
     aws_api.cache_objects(aws_api.s3_buckets, s3_buckets_cache_file)
-
     print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")
     assert isinstance(aws_api.s3_buckets, list)
 
 
 def test_init_and_cache_s3_bucket_objects():
-    for dict_environ in ignore_me.aws_accounts:
-        env = AWSAccount()
-        env.init_from_dict(dict_environ)
-        AWSAccount.set_aws_account(env)
-        #aws_api.init_s3_buckets()
-        aws_api.init_s3_buckets(from_cache=True,
-                                cache_file=s3_buckets_cache_file)
+    aws_api.init_s3_buckets(from_cache=True,
+                            cache_file=s3_buckets_cache_file)
 
-        aws_api.init_and_cache_s3_bucket_objects(s3_objects_dir)
+    aws_api.init_and_cache_s3_bucket_objects(s3_objects_dir)
 
-        pdb.set_trace()
+    pdb.set_trace()
 
     print(f"len(s3_buckets) = {len(aws_api.s3_buckets)}")
     assert isinstance(aws_api.s3_buckets, list)
+
+
+def test_init_and_cache_raw_large_cloud_watch_log_groups():
+    aws_api.init_and_cache_raw_large_cloud_watch_log_groups(cloudwatch_log_groups_dir)
+    print(f"len(cloud_watch_log_groups) = {len(aws_api.cloud_watch_log_groups)}")
+    assert isinstance(aws_api.cloud_watch_log_groups, list)
 
 
 def test_init_and_cache_lambdas():
@@ -117,16 +113,6 @@ def test_init_and_cache_cloudtrail_logs():
     assert isinstance(aws_api.cloud_watch_log_groups, list)
 
 
-def test_init_and_cache_raw_large_cloud_watch_log_groups():
-    for dict_environ in ignore_me.aws_accounts:
-        env = AWSAccount()
-        env.init_from_dict(dict_environ)
-        AWSAccount.set_aws_account(env)
-        aws_api.init_and_cache_raw_large_cloud_watch_log_groups(os.path.join(cache_base_path, "cloudwatch_log_groups_rnd"))
-        break
-
-    print(f"len(cloud_watch_log_groups) = {len(aws_api.cloud_watch_log_groups)}")
-    assert isinstance(aws_api.cloud_watch_log_groups, list)
 
 
 def upload_to_s3(dir_to_upload, bucket_name):
@@ -191,11 +177,11 @@ if __name__ == "__main__":
     #test_init_and_cache_ec2instances()
     #test_init_and_cache_s3_buckets()
     #test_init_and_cache_s3_bucket_objects()
+    test_init_and_cache_raw_large_cloud_watch_log_groups()
     #test_init_and_cache_lambdas()
     #test_init_and_cache_iam_roles()
-    test_init_and_cache_iam_policies()
+    #test_init_and_cache_iam_policies()
     #test_init_and_cache_cloudtrail_logs()
-    #test_init_and_cache_raw_large_cloud_watch_log_groups()
     #test_init_and_cache_hosted_zones()
     #test_init_and_cache_classic_load_balancers()
     #test_init_and_cache_load_balancers()

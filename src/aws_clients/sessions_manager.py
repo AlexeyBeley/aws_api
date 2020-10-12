@@ -27,8 +27,8 @@ class SessionsManager(object):
             self.clients = dict()
 
         def get_client(self, client_name):
-            aws_account = AWSAccount.get_aws_account()
-            region_mark = aws_account.region.region_mark if aws_account.region is not None else self.session.region_name
+            aws_region = AWSAccount.get_aws_region()
+            region_mark = aws_region.region_mark if aws_region is not None else self.session.region_name
 
             if region_mark not in self.clients or client_name not in self.clients[region_mark]:
                 self.connect_client(region_mark, client_name)
@@ -49,20 +49,27 @@ class SessionsManager(object):
                 SessionsManager.Connection.LOCK.release()
 
     @staticmethod
+    def get_connection_id():
+        aws_account = AWSAccount.get_aws_account()
+        aws_region = AWSAccount.get_aws_region()
+        region_mark = aws_region.region_mark if aws_region is not None else ""
+        return f"{aws_account.id}/{region_mark}"
+
+    @staticmethod
     def get_connection():
         """
 
         :return: Connects Session if there is no one already
         """
 
-        aws_account = AWSAccount.get_aws_account()
-        connection = SessionsManager.CONNECTIONS.get(aws_account)
+        connection_id = SessionsManager.get_connection_id()
+        connection = SessionsManager.CONNECTIONS.get(connection_id)
         if connection is not None:
             return connection
 
         session = SessionsManager.connect_session()
         connection = SessionsManager.Connection(session)
-        SessionsManager.add_new_connection(aws_account, connection)
+        SessionsManager.add_new_connection(connection_id, connection)
 
         return connection
 
@@ -89,6 +96,11 @@ class SessionsManager(object):
     @staticmethod
     def connect_session():
         aws_account = AWSAccount.get_aws_account()
+        aws_region = AWSAccount.get_aws_region()
+
+        if aws_region is not None and len(aws_account.regions[aws_region.region_mark].connection_steps) > 0:
+            raise NotImplementedError("Per region connection steps not yet implemented")
+
         if len(aws_account.connection_steps) == 0:
             raise RuntimeError(f"No connection steps defined for aws_account: '{aws_account.id}'")
 
@@ -99,7 +111,6 @@ class SessionsManager(object):
         if session is None:
             raise RuntimeError(f"Could not establish session for aws_account {aws_account.id}")
 
-
         return session
 
     @staticmethod
@@ -108,6 +119,7 @@ class SessionsManager(object):
 
     @staticmethod
     def delete_current_session():
+        raise NotImplementedError("delete_current_session")
         del SessionsManager.CONNECTIONS[SessionsManager.get_current_session()]
 
     @staticmethod

@@ -11,16 +11,25 @@ from aws_api import AWSAPI
 import ignore_me
 import logging
 logger = logging.Logger(__name__)
-from environment import Environment
+from aws_account import AWSAccount
+
+tested_account = ignore_me.acc_rnd
+AWSAccount.set_aws_account(tested_account)
 
 aws_api = AWSAPI()
-cache_base_path = "/Users/alexeybe/private/aws_api/ignore/cache_objects"
+
+cache_base_path = os.path.join(os.path.expanduser("~"), f"private/aws_api/ignore/cache_objects_{tested_account.name}")
+s3_buckets_cache_file = os.path.join(cache_base_path, "s3_buckets.json")
+ec2_instances_cache_file = os.path.join(cache_base_path, "ec2_instances.json")
+s3_objects_dir = os.path.join(cache_base_path, "s3_buckets_objects")
+cloudwatch_log_groups_dir = os.path.join(cache_base_path, "cloudwatch_log_groups")
+
 
 def test_init_and_cleanup_s3_buckets():
-    for dict_environ in ignore_me.environments:
-        env = Environment()
+    for dict_environ in ignore_me.aws_accounts:
+        env = AWSAccount()
         env.init_from_dict(dict_environ)
-        Environment.set_environment(env)
+        AWSAccount.set_aws_account(env)
         aws_api.init_s3_buckets(full_information=False)
 
         aws_api.cleanup_report_s3_buckets()
@@ -33,10 +42,10 @@ summarised_data_file = "/Users/alexeybe/private/aws_api/ignore/cleanup/us_stg/bu
 bucket_objects_dir = "/Users/alexeybe/private/aws_api/ignore/cache_objects/s3_buckets_objects"
 
 def test_init_from_cache_and_cleanup_s3_buckets():
-    for dict_environ in ignore_me.environments:
-        env = Environment()
+    for dict_environ in ignore_me.aws_accounts:
+        env = AWSAccount()
         env.init_from_dict(dict_environ)
-        Environment.set_environment(env)
+        AWSAccount.set_aws_account(env)
 
         aws_api.init_s3_buckets(from_cache=True, cache_file=buckets_cache_json_file)
 
@@ -45,10 +54,10 @@ def test_init_from_cache_and_cleanup_s3_buckets():
 
 
 def test_cleanup_report_iam_roles():
-    for dict_environ in ignore_me.environments:
-        env = Environment()
+    for dict_environ in ignore_me.aws_accounts:
+        env = AWSAccount()
         env.init_from_dict(dict_environ)
-        Environment.set_environment(env)
+        AWSAccount.set_aws_account(env)
 
         aws_api.init_iam_roles(from_cache=True,
                             cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/iam_roles.json")
@@ -57,10 +66,10 @@ def test_cleanup_report_iam_roles():
 
 
 def test_init_from_cache_and_cleanup_lambdas():
-    for dict_environ in ignore_me.environments:
-        env = Environment()
+    for dict_environ in ignore_me.aws_accounts:
+        env = AWSAccount()
         env.init_from_dict(dict_environ)
-        Environment.set_environment(env)
+        AWSAccount.set_aws_account(env)
 
         aws_api.init_lambdas(from_cache=True,
                             cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/lambdas.json")
@@ -69,10 +78,10 @@ def test_init_from_cache_and_cleanup_lambdas():
 
 
 def test_cleanup_report_iam_policies():
-    for dict_environ in ignore_me.environments:
-        env = Environment()
+    for dict_environ in ignore_me.aws_accounts:
+        env = AWSAccount()
         env.init_from_dict(dict_environ)
-        Environment.set_environment(env)
+        AWSAccount.set_aws_account(env)
 
         aws_api.init_iam_policies(from_cache=True,
                             cache_file="/Users/alexeybe/private/aws_api/ignore/cache_objects/iam_policies.json")
@@ -84,13 +93,7 @@ cloud_watch_cache = "cloud_watch_log_groups.json"
 cloud_watch_streams = "cloudwatch_log_groups_rnd"
 
 def test_cleanup_report_cloud_watch_logs():
-    for dict_environ in ignore_me.environments:
-        env = Environment()
-        env.init_from_dict(dict_environ)
-        Environment.set_environment(env)
-        aws_api.init_cloud_watch_log_groups(from_cache=True, cache_file=os.path.join(cache_base_path, cloud_watch_cache))
-        #pdb.set_trace()
-        aws_api.cleanup_report_cloud_watch_log_groups(os.path.join(cache_base_path, cloud_watch_streams))
+    aws_api.cleanup_report_cloud_watch_log_groups(cloudwatch_log_groups_dir)
 
 
 hosted_zones_cache_file = os.path.join(cache_base_path, "hosted_zones.json")

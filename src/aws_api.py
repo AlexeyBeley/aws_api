@@ -91,6 +91,14 @@ class AWSAPI(object):
 
         self.ec2_instances += objects
 
+    def init_s3_buckets(self, from_cache=False, cache_file=None, full_information=True):
+        if from_cache:
+            objects = self.load_objects_from_cache(cache_file, S3Bucket)
+        else:
+            objects = self.s3_client.get_all_buckets(full_information=full_information)
+
+        self.s3_buckets = objects
+
     def init_users(self, from_cache=False, cache_file=None):
         if from_cache:
             objects = self.load_objects_from_cache(cache_file, IamUser)
@@ -119,6 +127,7 @@ class AWSAPI(object):
         os.makedirs(cache_dir, exist_ok=True)
         log_groups = self.cloud_watch_logs_client.get_cloud_watch_log_groups(full_information=False)
         for log_group in log_groups:
+            pdb.set_trace()
             sub_dir = os.path.join(cache_dir, log_group.name.lower().replace("/", "_"))
             os.makedirs(sub_dir, exist_ok=True)
             logger.info(f"Starting collecting from bucket: {sub_dir}")
@@ -168,14 +177,6 @@ class AWSAPI(object):
 
         self.iam_policies = objects
 
-    def init_s3_buckets(self, from_cache=False, cache_file=None, full_information=True):
-        if from_cache:
-            objects = self.load_objects_from_cache(cache_file, S3Bucket)
-        else:
-            objects = self.s3_client.get_all_buckets(full_information=full_information)
-
-        self.s3_buckets = objects
-
     def init_and_cache_s3_bucket_objects_synchronous(self, buckets_objects_cache_dir):
         max_count = 100000
         for bucket in self.s3_buckets:
@@ -217,6 +218,7 @@ class AWSAPI(object):
         """
         max_count = 100000
         for bucket in self.s3_buckets:
+            pdb.set_trace()
             if bucket_name is not None and bucket.name != bucket_name:
                 continue
 

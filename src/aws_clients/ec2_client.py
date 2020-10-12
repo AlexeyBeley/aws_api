@@ -2,6 +2,7 @@ import pdb
 from ec2_instance import EC2Instance
 from ec2_security_group import EC2SecurityGroup
 from boto3_client import Boto3Client
+from aws_account import AWSAccount
 
 
 class EC2Client(Boto3Client):
@@ -12,9 +13,10 @@ class EC2Client(Boto3Client):
     def get_all_instances(self):
         final_result = list()
 
-        for instance in self.execute(self.client.describe_instances, "Reservations"):
-            final_result.extend(instance['Instances'])
-
+        for region in AWSAccount.get_aws_account().regions.values():
+            AWSAccount.set_aws_region(region)
+            for instance in self.execute(self.client.describe_instances, "Reservations"):
+                final_result.extend(instance['Instances'])
         return [EC2Instance(instance) for instance in final_result]
 
     def get_all_security_groups(self, full_information=False):
