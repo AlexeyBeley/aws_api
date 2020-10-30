@@ -15,6 +15,7 @@ SRC_FILES := $(filter-out $(EXCLUSIONS), $(ALL_FILES))
 venv_dir:
 	mkdir -p ${BUILD_DIR}
 	python3 -m venv ${VENV_DIR} && \
+	pip3 install pylint &&\
 	pip3 install wheel
 
 package_source_requirements: venv_dir
@@ -53,10 +54,11 @@ raw_invoke:
 clear:
 	rm -rf ${VENV_DIR}
 
-pylint:
+pylint: venv_dir pylint_raw
+
+raw_pylint:
 	source ${VENV_DIR}/bin/activate &&\
-	pip3 install pylint &&\
-	pylint lambda_event.py
+	pylint ${SRC_DIR}/aws_api/src/aws_clients/boto3_client.py
 	#pylint ${SRC_FILES}
 
 

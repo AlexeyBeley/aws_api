@@ -1,6 +1,7 @@
 import pdb
 from boto3_client import Boto3Client
 from elb_load_balancer import ClassicLoadBalancer
+from aws_account import AWSAccount
 
 
 class ELBClient(Boto3Client):
@@ -11,19 +12,14 @@ class ELBClient(Boto3Client):
     def get_all_load_balancers(self, full_information=True):
         final_result = list()
 
-        for response in self.execute(self.client.describe_load_balancers, "LoadBalancerDescriptions"):
-            obj = ClassicLoadBalancer(response)
-            final_result.append(obj)
+        for region in AWSAccount.get_aws_account().regions.values():
+            AWSAccount.set_aws_region(region)
+            for response in self.execute(self.client.describe_load_balancers, "LoadBalancerDescriptions"):
+                obj = ClassicLoadBalancer(response)
+                final_result.append(obj)
 
-            if full_information:
-                pass
-                # update_info = self.execute("get_bucket_acl", "Grants", filters_req={"Bucket": obj.name})
-                # obj.update_acl(update_info)
-                # update_info = self.execute("get_bucket_policy", "Policy", filters_req={"Bucket": "checkout-plugins-public"})
-                # obj.update_policy(update_info)
+                if full_information:
+                    pass
 
-            # import pprint
-            # printer = pprint.PrettyPrinter(indent=4)
-            # for user in ret:  printer.pprint(user)
         return final_result
 

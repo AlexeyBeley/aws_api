@@ -1,12 +1,23 @@
+"""
+Base Boto3 client. It provides sessions and client management.
+"""
+
 import pdb
+import os
+import sys
 import time
 from sessions_manager import SessionsManager
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "base_entities" ))
+
 from h_logger import get_logger
 
 logger = get_logger()
 
 
-class Boto3Client(object):
+class Boto3Client:
+    """
+    Main class to inherite from, when creating AWS clients.
+    """
     EXEC_COUNT = 0
     SESSIONS_MANAGER = SessionsManager()
     EXECUTION_RETRY_COUNT = 4
@@ -27,21 +38,20 @@ class Boto3Client(object):
 
     @property
     def client(self):
+        """
+        Returns current sessions AWS client, which executes the base api calls
+        :return:
+        """
         return self.SESSIONS_MANAGER.get_client(self.client_name)
 
     @client.setter
     def client(self, _):
-        raise RuntimeError("Nobody can set a client explicitly")
-
-    def connect(self):
         """
-        Connects relevant clients. If session not connected - connects session too.
+        As the clients are managed by session manager they can't be assigned explicitly.
+        :param _:
         :return:
         """
-        if self.SESSIONS_MANAGER.get_current_session() is None:
-            self.SESSIONS_MANAGER.connect_session(aws_key_id=self.aws_key_id, aws_access_secret=self.aws_access_secret, region_name=self.region_name)
-
-        self.SESSIONS_MANAGER.connect_client(self.client_name, self.region_name)
+        raise RuntimeError(f"Nobody can set a client explicitly in{self}")
 
     def yield_with_paginator(self, func_command, return_string, filters_req=None, raw_answer=False):
         """
@@ -81,16 +91,17 @@ class Boto3Client(object):
                         yield response_obj
                     if starting_token is None:
                         return
-            except Exception as e:
+            except Exception as exception_instance:
                 time.sleep(1)
-                logger.warning(f"Retrying '{func_command.__name__}' attempt {retry_counter}/{self.EXECUTION_RETRY_COUNT} Error: {e}")
+                logger.warning(f"Retrying '{func_command.__name__}' attempt {retry_counter}/{self.EXECUTION_RETRY_COUNT} Error: {exception_instance}")
 
-    @classmethod
-    def start_assuming_role(cls, role_arn):
-        SessionsManager.start_assuming_role(role_arn)
 
     @classmethod
     def stop_assuming_role(cls):
+        """
+        Stop assuming aws role
+        :return:
+        """
         SessionsManager.stop_assuming_role()
 
     def execute(self, func_command, return_string, filters_req=None, raw_answer=False):
@@ -118,7 +129,7 @@ class Boto3Client(object):
             yield response
             return
 
-        if type(response[return_string]) is list:
+        if isinstance(response[return_string], list):
             ret_lst = response[return_string]
         elif type(response[return_string]) in [str, dict]:
             ret_lst = [response[return_string]]

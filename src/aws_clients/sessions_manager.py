@@ -118,11 +118,6 @@ class SessionsManager(object):
         SessionsManager.CONNECTIONS[aws_account] = connection
 
     @staticmethod
-    def delete_current_session():
-        raise NotImplementedError("delete_current_session")
-        del SessionsManager.CONNECTIONS[SessionsManager.get_current_session()]
-
-    @staticmethod
     def start_assuming_role(role_arn: str, session: Any, extra_args=None):
         """
         Automatically refreshes sessions

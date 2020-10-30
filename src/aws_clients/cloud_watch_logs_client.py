@@ -13,13 +13,23 @@ class CloudWatchLogsClient(Boto3Client):
         client_name = "logs"
         super(CloudWatchLogsClient, self).__init__(client_name)
 
-    def get_cloud_watch_log_groups(self, full_information=True):
+    def get_cloud_watch_log_groups(self, full_information=False):
+        """
+        Be sure you know what you do, when you set full_information=True.
+        This can kill your memory, if you have a lot of data in cloudwatch.
+        Better using yield_log_group_streams if you need.
+
+        :param full_information:
+        :return:
+        """
+
         final_result = list()
 
         for result in self.execute(self.client.describe_log_groups, "logGroups"):
             obj = CloudWatchLogGroup(result)
             if full_information:
                 self.update_log_group_full_information(obj)
+
             final_result.append(obj)
         return final_result
 

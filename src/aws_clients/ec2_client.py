@@ -21,11 +21,14 @@ class EC2Client(Boto3Client):
 
     def get_all_security_groups(self, full_information=False):
         final_result = list()
-        for ret in self.execute(self.client.describe_security_groups, "SecurityGroups"):
-            obj = EC2SecurityGroup(ret)
-            if full_information is True:
-                raise NotImplementedError
 
-            final_result.append(obj)
+        for region in AWSAccount.get_aws_account().regions.values():
+            AWSAccount.set_aws_region(region)
+            for ret in self.execute(self.client.describe_security_groups, "SecurityGroups"):
+                obj = EC2SecurityGroup(ret)
+                if full_information is True:
+                    raise NotImplementedError()
+
+                final_result.append(obj)
 
         return final_result

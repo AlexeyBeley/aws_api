@@ -88,7 +88,14 @@ class IamClient(Boto3Client):
 
     def update_iam_role_managed_policies(self, iam_role, policies):
         for managed_policy in self.execute(self.client.list_attached_role_policies, "AttachedPolicies", filters_req={"RoleName": iam_role.name, "MaxItems": 1000}):
-            policy = CommonUtils.find_objects_by_values(policies, {"arn": managed_policy["PolicyArn"]}, max_count=1)[0]
+            #found_policies = CommonUtils.find_objects_by_values(policies, {"arn": managed_policy["PolicyArn"]}, max_count=1)
+            found_policies = CommonUtils.find_objects_by_values(policies, {"arn": managed_policy["PolicyArn"]})
+
+            if len(found_policies) != 1:
+                pdb.set_trace()
+                found_policies = [managed_policy["PolicyArn"]]
+
+            policy = found_policies[0]
             iam_role.add_policy(policy)
 
     def update_iam_role_inline_policies(self, iam_role):

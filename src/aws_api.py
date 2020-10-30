@@ -317,7 +317,6 @@ class AWSAPI(object):
             objects = self.load_objects_from_cache(cache_file, EC2SecurityGroup)
         else:
             objects = self.ec2_client.get_all_security_groups(full_information=full_information)
-        pdb.set_trace()
         self.security_groups += objects
 
     def load_objects_from_cache(self, file_name, class_type):

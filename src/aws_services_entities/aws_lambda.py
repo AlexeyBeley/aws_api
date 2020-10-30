@@ -34,6 +34,7 @@ class AWSLambda(AwsObject):
             "RevisionId": self.init_default_attr,
             "Layers": self.init_default_attr,
             "DeadLetterConfig": self.init_default_attr,
+            "KMSKeyArn": self.init_default_attr,
                         }
 
         self.init_attrs(dict_src, init_options)

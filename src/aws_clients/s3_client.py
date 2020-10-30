@@ -62,3 +62,12 @@ class S3Client(Boto3Client):
                         raise
 
         return final_result
+
+    def upload_to_s3(self, dir_to_upload, bucket_name):
+        raise NotImplementedError()
+        for root, dirs, files in os.walk(dir_to_upload):
+            print(root)
+            for file in files:
+                aws_api.s3_client.client.upload_file(os.path.join(root, file), bucket_name, os.path.join(root, file))
+        return
+
