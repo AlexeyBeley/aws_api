@@ -1,4 +1,6 @@
-import pdb
+"""
+AWS iam client to handle iam service API requests.
+"""
 from iam_user import IamUser
 from iam_access_key import IamAccessKey
 from iam_policy import IamPolicy
@@ -8,15 +10,23 @@ from common_utils import CommonUtils
 
 
 class IamClient(Boto3Client):
+    """
+    Client to handle specific aws service API calls.
+    """
     NEXT_PAGE_REQUEST_KEY = "Marker"
     NEXT_PAGE_RESPONSE_KEY = "Marker"
     NEXT_PAGE_INITIAL_KEY = ""
 
     def __init__(self):
         client_name = "iam"
-        super(IamClient, self).__init__(client_name)
+        super().__init__(client_name)
 
     def get_all_users(self, full_information=True):
+        """
+        Get all users.
+        :param full_information:
+        :return:
+        """
         final_result = list()
 
         for response in self.execute(self.client.list_users, "Users"):
@@ -28,22 +38,15 @@ class IamClient(Boto3Client):
                 user = CommonUtils.find_objects_by_values(final_result, {"id": update_info["UserId"]}, max_count=1)[0]
                 user.update_attributes(update_info)
 
-            # import pprint
-            # printer = pprint.PrettyPrinter(indent=4)
-            # for user in ret:  printer.pprint(user)
         return final_result
 
-    def update_policy_statements(self, policy):
-        """
-        Fetches and pdates the policy statements
-        :param policy: The IamPolicy obj
-        :return: None, raise if fails
-        """
-        pdb.set_trace()
-        for response in self.execute(self.client.get_policy_version, "PolicyVersion", filters_req={"PolicyArn": policy.arn, "VersionId": policy.default_version_id}):
-            policy.update_statements(response)
+
 
     def get_all_access_keys(self):
+        """
+        Get all access keys.
+        :return:
+        """
         final_result = list()
         users = self.get_all_users()
 
@@ -54,6 +57,12 @@ class IamClient(Boto3Client):
         return final_result
 
     def get_all_roles(self, full_information=True, policies=None):
+        """
+        Get all roles
+        :param full_information:
+        :param policies:
+        :return:
+        """
         final_result = list()
 
         for result in self.execute(self.client.list_roles, "Roles", filters_req={"MaxItems": 1000}):
@@ -69,8 +78,10 @@ class IamClient(Boto3Client):
         list_role_policies:
         ('RoleName', '')
         ('PolicyName', '')
-        ('PolicyDocument', {'Version': '2012-10-17', 'Statement': [{'Effect': 'Allow', 'Action': 'ec2:Describe*', 'Resource': '*'}, {'Effect': 'Allow', 'Action': 'elasticloadbalancing:Describe*', 'Resource': '*'}, {'Effect': 'Allow', 'Action': ['cloudwatch:ListMetrics', 'cloudwatch:GetMetricStatistics', 'cloudwatch:Describe*'], 'Resource': '*'}, {'Effect': 'Allow', 'Action': 'autoscaling:Describe*', 'Resource': '*'}]})
-        ('ResponseMetadata', {'RequestId': 'dcc6b611-786c-4ef7-a7d3-a7c391755326', 'HTTPStatusCode': 200, 'HTTPHeaders': {'x-amzn-requestid': 'dcc6b611-786c-4ef7-a7d3-a7c391755326', 'content-type': 'text/xml', 'content-length': '1963', 'date': 'Thu, 17 Sep 2020 07:49:30 GMT'}, 'RetryAttempts': 0})
+        ('PolicyDocument', {'Version': '2012-10-17', 'Statement': [{'Effect': 'Allow', 'Action': 'ec2:Describe*', 'Resource': '*'}, {'Effect': 'Allow', 'Action': 'elasticloadbalancing:Describe*', 'Resource': '*'},
+        {'Effect': 'Allow', 'Action': ['cloudwatch:ListMetrics', 'cloudwatch:GetMetricStatistics', 'cloudwatch:Describe*'], 'Resource': '*'}, {'Effect': 'Allow', 'Action': 'autoscaling:Describe*', 'Resource': '*'}]})
+        ('ResponseMetadata', {'RequestId': 'dcc6b611-786c-4ef7-a7d3-a7c391755326', 'HTTPStatusCode': 200, 'HTTPHeaders': {'x-amzn-requestid': 'dcc6b611-786c-4ef7-a7d3-a7c391755326', 'content-type': 'text/xml',
+        'content-length': '1963', 'date': 'Thu, 17 Sep 2020 07:49:30 GMT'}, 'RetryAttempts': 0})
 
         :param iam_role:
         :param policies:
@@ -82,23 +93,36 @@ class IamClient(Boto3Client):
         self.update_iam_role_inline_policies(iam_role)
 
     def update_iam_role_last_used(self, iam_role):
+        """
+        Full information part update.
+        :param iam_role:
+        :return:
+        """
         ret = self.execute(self.client.get_role, "Role", filters_req={"RoleName": iam_role.name})
         update_info = next(ret)
         iam_role.update_extended(update_info)
 
     def update_iam_role_managed_policies(self, iam_role, policies):
+        """
+        Full information part update.
+        :param iam_role:
+        :return:
+        """
         for managed_policy in self.execute(self.client.list_attached_role_policies, "AttachedPolicies", filters_req={"RoleName": iam_role.name, "MaxItems": 1000}):
-            #found_policies = CommonUtils.find_objects_by_values(policies, {"arn": managed_policy["PolicyArn"]}, max_count=1)
             found_policies = CommonUtils.find_objects_by_values(policies, {"arn": managed_policy["PolicyArn"]})
 
             if len(found_policies) != 1:
-                pdb.set_trace()
                 found_policies = [managed_policy["PolicyArn"]]
 
             policy = found_policies[0]
             iam_role.add_policy(policy)
 
     def update_iam_role_inline_policies(self, iam_role):
+        """
+        Full information part update.
+        :param iam_role:
+        :return:
+        """
         for poilcy_name in self.execute(self.client.list_role_policies, "PolicyNames", filters_req={"RoleName": iam_role.name, "MaxItems": 1000}):
             for document_dict in self.execute(self.client.get_role_policy, "PolicyDocument", filters_req={"RoleName": iam_role.name, "PolicyName": poilcy_name}):
                 policy_dict = {"PolicyName": poilcy_name}
@@ -109,13 +133,17 @@ class IamClient(Boto3Client):
                 policy.update_statements(policy_dict)
 
     def get_all_policies(self, full_information=True):
+        """
+        Get all iam policies.
+        :param full_information:
+        :return:
+        """
         final_result = list()
 
         for result in self.execute(self.client.list_policies, "Policies"):
             pol = IamPolicy(result)
             if full_information:
                 self.update_policy_statements(pol)
-            #pdb.set_trace()
             final_result.append(pol)
         return final_result
 

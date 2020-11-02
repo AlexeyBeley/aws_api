@@ -1,25 +1,36 @@
+"""
+Manages sessions towards multiple AWS accounts and regions.
+"""
 import threading
+import sys
+import os
+import datetime
+from typing import Any
 import boto3
 import botocore
-import pdb
-import sys
-import datetime
 from dateutil.tz import tzlocal
-from typing import Any
 
-sys.path.insert(0, "/Users/alexeybe/private/aws_api/src/base_entities")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "base_entities"))
 from aws_account import AWSAccount
 
 
 class LockAcquiringFailError(Exception):
-    pass
+    """
+    Exception acquiring lock.
+    """
 
 
-class SessionsManager(object):
+class SessionsManager:
+    """
+    Class to handle multiple sessions to different accounts.
+    """
     CONNECTIONS = {}  # {Session: {client_name: client}}
     ASSUME_ROLE_SESSION_EXPIRY_WINDOW_SECONDS = 60 * 15
 
     class Connection:
+        """
+        Class to handle a connection on the same AWS API session to multiple clients.
+        """
         LOCK = threading.Lock()
 
         def __init__(self, session):
@@ -27,6 +38,11 @@ class SessionsManager(object):
             self.clients = dict()
 
         def get_client(self, client_name):
+            """
+            If client to a specific region does not exists- creates it.
+            :param client_name:
+            :return:
+            """
             aws_region = AWSAccount.get_aws_region()
             region_mark = aws_region.region_mark if aws_region is not None else self.session.region_name
 
@@ -36,6 +52,12 @@ class SessionsManager(object):
             return self.clients[region_mark][client_name]
 
         def connect_client(self, region_mark, client_name):
+            """
+            Create a client connection in specific region
+            :param region_mark:
+            :param client_name:
+            :return:
+            """
             acquired = SessionsManager.Connection.LOCK.acquire(blocking=False)
             try:
                 if acquired is True:
@@ -50,6 +72,10 @@ class SessionsManager(object):
 
     @staticmethod
     def get_connection_id():
+        """
+        Each connection has a unique id- in order to reuse it. This function generates it.
+        :return:
+        """
         aws_account = AWSAccount.get_aws_account()
         aws_region = AWSAccount.get_aws_region()
         region_mark = aws_region.region_mark if aws_region is not None else ""
@@ -58,7 +84,7 @@ class SessionsManager(object):
     @staticmethod
     def get_connection():
         """
-
+        AWS connection to an account.
         :return: Connects Session if there is no one already
         """
 
@@ -75,6 +101,13 @@ class SessionsManager(object):
 
     @staticmethod
     def execute_connection_step(connection_step, session):
+        """
+        Executes on of AWS accounts' connection the steps.
+
+        :param connection_step:
+        :param session:
+        :return:
+        """
         if connection_step.external_id is not None:
             extra_args = {"ExternalId": connection_step.external_id}
         else:
@@ -82,7 +115,7 @@ class SessionsManager(object):
 
         if connection_step.type == connection_step.Type.PROFILE:
             if session is not None:
-                raise RuntimeError(f"Initial session is not None")
+                raise RuntimeError("Initial session is not None")
 
             session = boto3.session.Session(profile_name=connection_step.profile_name,
                                             region_name=connection_step.region.region_mark)
@@ -95,6 +128,10 @@ class SessionsManager(object):
 
     @staticmethod
     def connect_session():
+        """
+        Each account can be managed after several steps of connection - run all steps in order to connect.
+        :return:
+        """
         aws_account = AWSAccount.get_aws_account()
         aws_region = AWSAccount.get_aws_region()
 
@@ -115,6 +152,13 @@ class SessionsManager(object):
 
     @staticmethod
     def add_new_connection(aws_account, connection):
+        """
+        Add connection to specific AWS account.
+
+        :param aws_account:
+        :param connection:
+        :return:
+        """
         SessionsManager.CONNECTIONS[aws_account] = connection
 
     @staticmethod
@@ -153,10 +197,6 @@ class SessionsManager(object):
         return boto3.Session(botocore_session=botocore_session)
 
     @staticmethod
-    def stop_assuming_role():
-        SessionsManager.delete_current_session()
-
-    @staticmethod
     def get_client(client_name):
         """
         Connects if no clients
@@ -167,5 +207,3 @@ class SessionsManager(object):
 
         connection = SessionsManager.get_connection()
         return connection.get_client(client_name)
-
-

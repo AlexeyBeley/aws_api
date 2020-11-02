@@ -2,7 +2,6 @@
 Base Boto3 client. It provides sessions and client management.
 """
 
-import pdb
 import os
 import sys
 import time
@@ -94,15 +93,6 @@ class Boto3Client:
             except Exception as exception_instance:
                 time.sleep(1)
                 logger.warning(f"Retrying '{func_command.__name__}' attempt {retry_counter}/{self.EXECUTION_RETRY_COUNT} Error: {exception_instance}")
-
-
-    @classmethod
-    def stop_assuming_role(cls):
-        """
-        Stop assuming aws role
-        :return:
-        """
-        SessionsManager.stop_assuming_role()
 
     def execute(self, func_command, return_string, filters_req=None, raw_answer=False):
         """

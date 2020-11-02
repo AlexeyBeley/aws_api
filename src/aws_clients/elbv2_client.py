@@ -1,15 +1,27 @@
-import pdb
+"""
+AWS elb-v2 client to handle elb-v2 service API requests.
+"""
 from boto3_client import Boto3Client
+
 from elbv2_load_balancer import LoadBalancer
 from elbv2_target_group import ELBV2TargetGroup
 from aws_account import AWSAccount
 
+
 class ELBV2Client(Boto3Client):
+    """
+    Client to handle specific aws service API calls.
+    """
     def __init__(self):
         client_name = "elbv2"
-        super(ELBV2Client, self).__init__(client_name)
+        super().__init__(client_name)
 
     def get_all_load_balancers(self, full_information=True):
+        """
+        Get all loadnbalancers
+        :param full_information:
+        :return:
+        """
         final_result = list()
 
         for region in AWSAccount.get_aws_account().regions.values():
@@ -24,6 +36,11 @@ class ELBV2Client(Boto3Client):
         return final_result
 
     def get_all_target_groups(self, full_information=True):
+        """
+        Get all target groups.
+        :param full_information:
+        :return:
+        """
         final_result = list()
         for response in self.execute(self.client.describe_target_groups, "TargetGroups"):
 
@@ -38,12 +55,6 @@ class ELBV2Client(Boto3Client):
                     print(response)
                     str_repr = repr(inst)
                     print(str_repr)
-                    pdb.set_trace()
+                    raise
 
-                # update_info = self.execute("get_bucket_policy", "Policy", filters_req={"Bucket": "checkout-plugins-public"})
-                # obj.update_policy(update_info)
-
-            # import pprint
-            # printer = pprint.PrettyPrinter(indent=4)
-            # for user in ret:  printer.pprint(user)
         return final_result

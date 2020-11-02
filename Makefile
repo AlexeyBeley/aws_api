@@ -58,7 +58,7 @@ pylint: venv_dir pylint_raw
 
 raw_pylint:
 	source ${VENV_DIR}/bin/activate &&\
-	pylint ${SRC_DIR}/aws_api/src/aws_clients/boto3_client.py
+	pylint ${SRC_DIR}/aws_api/src/base_entities/aws_account.py
 	#pylint ${SRC_FILES}
 
 

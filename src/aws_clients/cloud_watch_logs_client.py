@@ -1,17 +1,21 @@
-import pdb
+"""
+AWS client to handle cloud watch logs.
+"""
 from boto3_client import Boto3Client
 from cloud_watch_log_group import CloudWatchLogGroup
-from common_utils import CommonUtils
 
 
 class CloudWatchLogsClient(Boto3Client):
+    """
+    Client to work with cloud watch logs API.
+    """
     NEXT_PAGE_REQUEST_KEY = "nextToken"
     NEXT_PAGE_RESPONSE_KEY = "nextToken"
     NEXT_PAGE_INITIAL_KEY = ""
 
     def __init__(self):
         client_name = "logs"
-        super(CloudWatchLogsClient, self).__init__(client_name)
+        super().__init__(client_name)
 
     def get_cloud_watch_log_groups(self, full_information=False):
         """
@@ -44,5 +48,10 @@ class CloudWatchLogsClient(Boto3Client):
             obj.update_log_stream(response)
 
     def yield_log_group_streams(self, log_group_name):
+        """
+        Yields streams - made to handle large log groups, in order to prevent the OOM collapse.
+        :param log_group_name:
+        :return:
+        """
         for response in self.execute(self.client.describe_log_streams, "logStreams", filters_req={"logGroupName": log_group_name}):
             yield response

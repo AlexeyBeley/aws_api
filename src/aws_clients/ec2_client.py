@@ -1,4 +1,6 @@
-import pdb
+"""
+AWS ec2 client to handle ec2 service API requests.
+"""
 from ec2_instance import EC2Instance
 from ec2_security_group import EC2SecurityGroup
 from boto3_client import Boto3Client
@@ -6,11 +8,18 @@ from aws_account import AWSAccount
 
 
 class EC2Client(Boto3Client):
+    """
+    Client to handle specific aws service API calls.
+    """
     def __init__(self):
         client_name = "ec2"
-        super(EC2Client, self).__init__(client_name)
+        super().__init__(client_name)
 
     def get_all_instances(self):
+        """
+        Get all ec2 instances in current region.
+        :return:
+        """
         final_result = list()
 
         for region in AWSAccount.get_aws_account().regions.values():
@@ -20,6 +29,11 @@ class EC2Client(Boto3Client):
         return [EC2Instance(instance) for instance in final_result]
 
     def get_all_security_groups(self, full_information=False):
+        """
+        Get all security groups in the region.
+        :param full_information:
+        :return:
+        """
         final_result = list()
 
         for region in AWSAccount.get_aws_account().regions.values():
