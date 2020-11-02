@@ -1,7 +1,13 @@
-import pdb
+"""
+Some reusable stuff.
+"""
 import datetime
 
+
 class CommonUtils:
+    """
+    Some stuff to be reused
+    """
     @staticmethod
     def find_objects_by_values(objects, values, max_count=None):
         """
@@ -31,6 +37,11 @@ class CommonUtils:
 
     @staticmethod
     def int_to_str(number):
+        """
+        Int to comma separated string
+        :param number:
+        :return:
+        """
         if not isinstance(number, int):
             raise ValueError(number)
 
@@ -40,6 +51,11 @@ class CommonUtils:
 
     @staticmethod
     def bytes_to_str(number):
+        """
+        Pretty print of storage
+        :param number:
+        :return:
+        """
         if not isinstance(number, int):
             raise ValueError(number)
 
@@ -60,7 +76,7 @@ class CommonUtils:
 
         key_limit = 1
 
-        for key_limit_tmp, symbol in mapping.items():
+        for key_limit_tmp, _ in mapping.items():
             if number < key_limit_tmp:
                 break
             key_limit = key_limit_tmp
@@ -75,4 +91,9 @@ class CommonUtils:
 
     @staticmethod
     def timestamp_to_datetime(timestamp):
+        """
+        int to datetime.
+        :param timestamp:
+        :return:
+        """
         return datetime.datetime.fromtimestamp(timestamp)

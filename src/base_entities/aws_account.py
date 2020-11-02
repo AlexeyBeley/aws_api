@@ -1,8 +1,8 @@
 """
 AWS account management module - defines how to connect to an account in order to run API calls in in.
 """
-from region import Region
 from enum import Enum
+from region import Region
 
 
 class AWSAccount:

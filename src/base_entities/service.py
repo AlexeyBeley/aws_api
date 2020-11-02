@@ -1,8 +1,20 @@
-class Service(object):
+"""
+L3-L4 Service module
+"""
+
+
+class Service:
+    """
+    Main class to represent API to services.
+    """
     ANY = None
 
     @classmethod
     def any(cls):
+        """
+        Get Any service
+        :return:
+        """
         if Service.ANY is None:
             Service.ANY = Service()
         return Service.ANY
@@ -13,23 +25,34 @@ class Service(object):
     def __str__(self):
         if self is Service.any():
             return "any"
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def copy(self):
+        """
+        Copy object
+        :return:
+        """
         if self is self.any():
             return self.any()
 
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def intersect(self, other):
+        """
+        Intersect 2 services.
+        :param other:
+        :return:
+        """
         if not isinstance(other, Service):
-            raise ValueError
-        pdb.set_trace()
+            raise ValueError()
+        raise NotImplementedError(self)
 
 
 class ServiceTCP(Service):
+    """TCP family services"""
+
     def __init__(self):
-        super(ServiceTCP, self).__init__()
+        super().__init__()
         self.start = None
         self.end = None
 
@@ -37,15 +60,22 @@ class ServiceTCP(Service):
         return "TCP:[{}-{}]".format(self.start, self.end)
 
     def copy(self):
-        service = Service()
+        """
+        Make a copy of self
+        :return:
+        """
+        service = ServiceTCP()
         service.start = self.start
         service.end = self.end
         return service
 
 
 class ServiceUDP(Service):
+    """
+    UDP family services
+    """
     def __init__(self):
-        super(ServiceUDP, self).__init__()
+        super().__init__()
         self.start = None
         self.end = None
 
@@ -53,8 +83,8 @@ class ServiceUDP(Service):
         return "UDP:[{}-{}]".format(self.start, self.end)
 
     def copy(self):
-        service = Service()
+        """Make a copy of self"""
+        service = ServiceUDP()
         service.start = self.start
         service.end = self.end
         return service
-
