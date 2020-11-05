@@ -1,7 +1,8 @@
-from dns import DNS
+"""
+AWS Lambda representation
+"""
 import sys
 import os
-import pdb
 
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 
@@ -9,8 +10,11 @@ from aws_object import AwsObject
 
 
 class AWSLambda(AwsObject):
+    """
+    Lambda representation class
+    """
     def __init__(self, dict_src, from_cache=False):
-        super(AWSLambda, self).__init__(dict_src)
+        super().__init__(dict_src)
         if from_cache:
             self._init_object_from_cache(dict_src)
             return
@@ -41,12 +45,22 @@ class AWSLambda(AwsObject):
 
     @staticmethod
     def format_last_modified_time(str_value):
+        """
+        Pretty print of last modified time
+        :param str_value:
+        :return:
+        """
         _date, _time = str_value.split("T")
         _time, _micro_and_zone = _time.split(".")
         _micro_and_zone = "000" + _micro_and_zone
         return f"{_date} {_time}.{_micro_and_zone}"
 
     def _init_object_from_cache(self, dict_src):
+        """
+        Init from cache
+        :param dict_src:
+        :return:
+        """
         options = {"last_modified": self.init_date_attr_from_formatted_string,
                    }
         self._init_from_cache(dict_src, options)

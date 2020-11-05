@@ -1,12 +1,15 @@
+"""
+A base class for working with aws objects - parsing, caching and initiation.
+"""
 import re
-import pdb
 import datetime
 from enum import Enum
 
 
-class AwsObject(object):
-    #  for x, y in dict_src.items(): print('"'+str(x)+'"' +": "+ "self.init_default_attr" + ",")
-    #  compile re for Name usage
+class AwsObject:
+    """
+    Class to handle aws objets' base interaction.
+    """
 
     # Regex for manipulating CamelCase attr names
     _FIRST_CAP_RE = re.compile('(.)([A-Z][a-z]+)')
@@ -21,6 +24,13 @@ class AwsObject(object):
         self.id = None
 
     def _init_from_cache(self, dict_src, dict_options):
+        """
+        Init aws object from cache.
+
+        :param dict_src:
+        :param dict_options:
+        :return:
+        """
         for key_src, value in dict_src.items():
             if key_src in dict_options:
                 dict_options[key_src](key_src, value)
@@ -29,29 +39,64 @@ class AwsObject(object):
 
     @property
     def h_class_name(self):
+        """
+        Used to init the object from cache.
+        :return:
+        """
         return self.__class__.__name__
 
+    # pylint: disable=R0201
     @h_class_name.setter
     def h_class_name(self, _):
+        """
+        Should not be set explicitly.
+        :param _:
+        :return:
+        """
         raise Exception("System parameter, can't set")
 
     @property
     def name(self):
+        """
+        Object specific name
+        :return:
+        """
         return self._name
 
     @name.setter
     def name(self, value):
+        """
+        Name setter
+        :param value:
+        :return:
+        """
         self._name = value
 
     @property
     def id(self):
+        """
+        Object specific ID
+        :return:
+        """
         return self._id
 
     @id.setter
     def id(self, value):
+        """
+        ID setter
+        :param value:
+        :return:
+        """
         self._id = value
 
     def init_default_attr(self, attr_name, value, formatted_name=None):
+        """
+        The default function to init an attribute received in AWS API call reply.
+        :param attr_name:
+        :param value:
+        :param formatted_name:
+        :return:
+        """
         if formatted_name is None:
             formatted_name = self.format_attr_name(attr_name)
         setattr(self, formatted_name, value)
@@ -70,7 +115,7 @@ class AwsObject(object):
 
     def init_date_attr_from_cache_string(self, attr_name, value):
         """
-
+        Standard date format to be inited from cache. The format is set explicitly while cached.
         :param attr_name:
         :param value:
         :return:
@@ -86,23 +131,34 @@ class AwsObject(object):
         setattr(self, attr_name, datetime_object)
 
     def init_attrs(self, dict_src, dict_options):
+        """
+        Init the object attributes according to given "recipe"
+        :param dict_src:
+        :param dict_options:
+        :return:
+        """
         for key_src, value in dict_src.items():
             try:
                 dict_options[key_src](key_src, value)
-            except KeyError:
-                for key_src_, value_ in dict_src.items():
+            except KeyError as caught_exception:
+                for key_src_, _ in dict_src.items():
                     if key_src_ not in dict_options:
                         print('"{}":  self.init_default_attr,'.format(key_src_))
 
-                raise self.UnknownKeyError("Unknown key: " + key_src)
+                raise self.UnknownKeyError("Unknown key: " + key_src) from caught_exception
 
     def update_attributes(self, dict_src):
+        """
+        Init self with all attributes using default init method.
+        :param dict_src:
+        :return:
+        """
         for key_src, value in dict_src.items():
             self.init_default_attr(key_src, value)
 
     def format_attr_name(self, name):
-        # shamelessly copied from https://stackoverflow.com/a/1176023
         """
+        # shamelessly copied from https://stackoverflow.com/a/1176023
         format_attr_name('CamelCase')
         'camel_case'
         format_attr_name('CamelCamelCase')
@@ -126,40 +182,61 @@ class AwsObject(object):
         return self._ALL_CAP_RE.sub(r'\1_\2', s1).lower()
 
     def convert_to_dict(self):
+        """
+        Convert self to a cache dict
+        :return:
+        """
         return self.convert_to_dict_static(self.__dict__)
 
     @staticmethod
     def convert_to_dict_static(obj_src, custom_types=None):
+        # pylint: disable=R0911
+        """
+        Converts all known attribute types to a specific form available to be init from cache.
+
+        :param obj_src:
+        :param custom_types:
+        :return:
+        """
         if type(obj_src) in [str, int, bool, type(None)]:
             return obj_src
-        elif type(obj_src) == dict:
+
+        if isinstance(obj_src, dict):
             ret = {}
             for key, value in obj_src.items():
                 if type(key) not in [int, str]:
                     raise Exception
                 ret[key] = AwsObject.convert_to_dict_static(value, custom_types=custom_types)
             return ret
-        elif type(obj_src) == list:
+
+        if isinstance(obj_src, list):
             return [AwsObject.convert_to_dict_static(value, custom_types=custom_types) for value in obj_src]
-        elif isinstance(obj_src, AwsObject):
+
+        if isinstance(obj_src, AwsObject):
             return obj_src.convert_to_dict()
-        elif isinstance(obj_src, datetime.datetime):
+
+        if isinstance(obj_src, datetime.datetime):
             return obj_src.strftime("%Y-%m-%d %H:%M:%S.%f%z")
-        elif isinstance(obj_src, Enum):
+
+        if isinstance(obj_src, Enum):
             return obj_src.value
-        else:
-            # In most cases it will become str
-            # Ugly but efficient
-            if not custom_types:
-                return str(obj_src)
 
-            if type(obj_src) not in custom_types:
-                return str(obj_src)
+        # In most cases it will become str
+        # Ugly but efficient
+        if not custom_types:
+            return str(obj_src)
 
-            return custom_types[type(obj_src)](obj_src)
+        if type(obj_src) not in custom_types:
+            return str(obj_src)
+
+        return custom_types[type(obj_src)](obj_src)
 
     class UnknownKeyError(Exception):
-        pass
+        """
+        If trying to access unknown key
+        """
 
     class ParsingError(Exception):
-        pass
+        """
+        Can't parse the object while initializing.
+        """

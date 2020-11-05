@@ -1,5 +1,7 @@
+"""
+Class to represent ec2 instance
+"""
 import pdb
-import re
 
 import sys
 import os
@@ -9,13 +11,17 @@ from aws_object import AwsObject
 
 
 class EC2Instance(AwsObject):
+    """
+    Class to represent ec2 instance
+    """
     def __init__(self, dict_src, from_cache=False):
         """
         Init EC2 instance with boto3 dict
         :param dict_src:
         """
-        super(EC2Instance, self).__init__(dict_src)
-
+        super().__init__(dict_src)
+        self.private_dns_name = None
+        self.public_dns_name = None
         self.network_interfaces = []
         self.tags = {}
 
@@ -73,31 +79,62 @@ class EC2Instance(AwsObject):
         self.name = tag_name if tag_name else self.id
 
     def _init_instance_from_cache(self, dict_src):
+        """
+        Init self from preserved dict.
+        :param dict_src:
+        :return:
+        """
         options = {'launch_time': self.init_date_attr_from_cache_string,
                    'network_interfaces': self._init_network_interfaces_from_cache}
 
         self._init_from_cache(dict_src, options)
 
-    def _init_network_interfaces_from_cache(self, key, lst_src):
+    def _init_network_interfaces_from_cache(self, _, lst_src):
+        """
+        Nonstandard init of objects called from standard init_from_cache
+        :param _:
+        :param lst_src:
+        :return:
+        """
         if self.network_interfaces:
-            raise NotImplementedError
-        else:
-            for interface in lst_src:
-                self.network_interfaces.append(self.NetworkInterface(interface, from_cache=True))
+            raise NotImplementedError()
+
+        for interface in lst_src:
+            self.network_interfaces.append(self.NetworkInterface(interface, from_cache=True))
 
     def init_tags(self, _, tags):
+        """
+        Init tags
+        :param _:
+        :param tags:
+        :return:
+        """
         for tag in tags:
             self.tags[tag["Key"]] = tag["Value"]
 
     def get_tag(self, key):
-        if key in self.tags:
-            return self.tags[key]
+        """
+        Fetch tag value by name
+        :param key:
+        :return:
+        """
+        return self.tags.get(key)
 
     def init_interfaces(self, _, interfaces):
+        """
+        Init interface self objects
+        :param _:
+        :param interfaces:
+        :return:
+        """
         for interface in interfaces:
             self.network_interfaces.append(self.NetworkInterface(interface))
 
     def get_dns_records(self):
+        """
+        Get all self dns records.
+        :return:
+        """
         ret = []
         if self.private_dns_name:
             ret.append(self.private_dns_name)
@@ -108,9 +145,17 @@ class EC2Instance(AwsObject):
         return ret
 
     def get_all_ips(self):
+        """
+        Get all self ips.
+        :return:
+        """
         return [end_point["ip"].copy() for end_point in self.get_security_groups_endpoints()]
 
     def get_security_groups_endpoints(self):
+        """
+        Return security group endpoints - what end points the security group protects.
+        :return:
+        """
         lst_ret = []
         for inter in self.network_interfaces:
             lst_ret_inter = inter.get_security_groups_endpoints()
@@ -123,10 +168,18 @@ class EC2Instance(AwsObject):
         return lst_ret
 
     class NetworkInterface(AwsObject):
+        """
+        Class representing ec2 network interface
+        """
         def __init__(self, dict_src, from_cache=False):
             super(EC2Instance.NetworkInterface, self).__init__(dict_src)
-
+            self.groups = []
+            self.private_ip_addresses = []
+            self.subnet_id = None
+            self.description = None
+            self.ipv6_addresses = []
             self.private_ip_address = None
+
             if from_cache:
                 self._init_interface_from_cache(dict_src)
                 return
@@ -154,6 +207,11 @@ class EC2Instance(AwsObject):
             self.name = self.id
 
         def _init_interface_from_cache(self, dict_src):
+            """
+            Init self from conserved dict
+            :param dict_src:
+            :return:
+            """
             options = {
                         'private_ip_address': self._init_private_ip_address_from_cache,
                        }
@@ -161,20 +219,40 @@ class EC2Instance(AwsObject):
             self._init_from_cache(dict_src, options)
 
         def convert_to_dict(self):
+            """
+            Convert the object to a cache dict
+            :return:
+            """
             custom_types = {IP: lambda x: x.convert_to_dict()}
             return self.convert_to_dict_static(self.__dict__, custom_types=custom_types)
 
         def _init_private_ip_address_from_cache(self, _, value):
+            """
+            Init object from cache dict
+            :param _:
+            :param value:
+            :return:
+            """
             if self.private_ip_address is not None:
-                raise NotImplementedError
-            else:
-                self.private_ip_address = IP(value, from_dict=True)
+                raise NotImplementedError()
+            self.private_ip_address = IP(value, from_dict=True)
 
         def _init_private_ip_address(self, _, value):
+            """
+            Init private address from dict.
+            :param _:
+            :param value:
+            :return:
+            """
 
             self.private_ip_address = IP(value+"/32")
 
         def get_security_groups_endpoints(self):
+            """
+            Get all endpoints reached by security groups.
+            :return:
+            """
+
             lst_ret = []
 
             all_addresses = []
