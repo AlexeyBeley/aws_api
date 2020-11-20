@@ -31,6 +31,11 @@ class IamUser(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_user_from_cashe(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {'create_date': self.init_date_attr_from_cache_string,
                    'password_last_used':  self.init_date_attr_from_cache_string}
 

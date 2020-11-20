@@ -1,21 +1,19 @@
-import pdb
-import re
-
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
-
+"""
+Module to handle AWS IAM access key
+"""
 from aws_object import AwsObject
 
 
 class IamAccessKey(AwsObject):
+    """
+    Class representing AWS IAM Access key
+    """
     def __init__(self, dict_src):
         """
-        Init Iam user with boto3 dict
+        Init Iam Access Key with boto3 dict
         :param dict_src:
         """
-        super(IamAccessKey, self).__init__(dict_src)
+        super().__init__(dict_src)
 
         init_options = {
                         "AccessKeyId": lambda x, y: self.init_default_attr(x, y, formatted_name="id"),

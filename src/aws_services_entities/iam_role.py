@@ -37,6 +37,11 @@ class IamRole(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_iam_role_from_cashe(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {}
 
         self._init_from_cache(dict_src, options)

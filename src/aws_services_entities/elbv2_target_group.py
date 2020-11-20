@@ -1,17 +1,16 @@
-import pdb
-
-import json
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
-
+"""
+AWS ELB V2 target group
+"""
 from aws_object import AwsObject
 
 
 class ELBV2TargetGroup(AwsObject):
+    """
+    Class representing AWS ELB V2 target group
+    """
+
     def __init__(self, dict_src, from_cache=False):
-        super(ELBV2TargetGroup, self).__init__(dict_src)
+        super().__init__(dict_src)
         if from_cache:
             self._init_object_from_cache(dict_src)
             return
@@ -38,14 +37,19 @@ class ELBV2TargetGroup(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_object_from_cache(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {
                    }
         self._init_from_cache(dict_src, options)
 
-    def get_dns_records(self):
-        ret = [self.dns_name] if self.dns_name else []
-
-        return ret
-
     def update_target_health(self, dict_src):
+        """
+        Update extra information as required
+        :param dict_src:
+        :return:
+        """
         self.target_health = dict_src

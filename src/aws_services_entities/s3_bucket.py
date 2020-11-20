@@ -28,6 +28,11 @@ class S3Bucket(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_bucket_from_cache(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {
                    'creation_date':  self.init_date_attr_from_formatted_string,
                    'acl':  self._init_acl_from_cache,

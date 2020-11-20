@@ -1,14 +1,14 @@
-import pdb
-import sys
-import os
+"""
+Module handling AWS Iam Policy object
+"""
 from enum import Enum
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
-
 from aws_object import AwsObject
 
 
 class IamPolicy(AwsObject):
+    """
+    Class representing AWS Iam Policy object
+    """
     def __init__(self, dict_src, from_cache=False):
         """
         Init with boto3 dict
@@ -36,6 +36,11 @@ class IamPolicy(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_policy_from_cashe(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {"create_date": self.init_date_attr_from_formatted_string,
                    "update_date":  self.init_date_attr_from_formatted_string,
                    "document": self.init_document_from_cache,
@@ -43,10 +48,21 @@ class IamPolicy(AwsObject):
 
         self._init_from_cache(dict_src, options)
 
-    def init_document_from_cache(self, key, value):
+    def init_document_from_cache(self, _, value):
+        """
+        Init the document from saved cache dict.
+        :param _:
+        :param value:
+        :return:
+        """
         self.document = IamPolicy.Document(value, from_cache=True)
 
     def update_statements(self, dict_src):
+        """
+        Update statement from AWS API dict
+        :param dict_src:
+        :return:
+        """
         init_options = {"CreateDate": self.init_default_attr,
                         "IsDefaultVersion": self.init_default_attr,
                         "VersionId": self.init_default_attr,
@@ -56,10 +72,19 @@ class IamPolicy(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def init_document(self, _, value):
+        """
+        Init document. Value received from AWS API
+        :param _:
+        :param value:
+        :return:
+        """
         document = IamPolicy.Document(value)
         self.init_default_attr("document", document)
 
     class Document(AwsObject):
+        """
+        Class representing AWS Policy Document object.
+        """
         def __init__(self, dict_src, from_cache=False):
             self.statements = []
 
@@ -77,12 +102,24 @@ class IamPolicy(AwsObject):
             self.init_attrs(dict_src, init_options)
 
         def init_document_from_cache(self, dict_src):
+            """
+            Init previously cached dict.
+            :param dict_src:
+            :return:
+            """
             options = {"statements": lambda key, value: self.init_statement(key, value, from_cache=True),
                        }
 
             self._init_from_cache(dict_src, options)
 
         def init_statement(self, key, lst_src, from_cache=False):
+            """
+            Init single statement.
+            :param key:
+            :param lst_src:
+            :param from_cache:
+            :return:
+            """
             if not isinstance(lst_src, list):
                 lst_src = [lst_src]
 
@@ -92,6 +129,9 @@ class IamPolicy(AwsObject):
                 self.statements.append(statement)
 
         class Statement(AwsObject):
+            """
+            Class representing single AWS Policy Document Statement object.
+            """
 
             def __init__(self, dict_src, from_cache=False):
                 self.effect = None
@@ -117,10 +157,21 @@ class IamPolicy(AwsObject):
                 self.init_attrs(dict_src, init_options)
 
             def init_statement_from_cache(self, dict_src):
+                """
+                Init previously saved cache dict.
+                :param dict_src:
+                :return:
+                """
                 options = {"effect": self.init_effect}
                 self._init_from_cache(dict_src, options)
 
             def init_action(self, attr_name, value):
+                """
+                Init action. Value received from AWS API
+                :param attr_name:
+                :param value:
+                :return:
+                """
                 if isinstance(value, str):
                     value = [value]
                 action = getattr(self, self.format_attr_name(attr_name))
@@ -134,8 +185,7 @@ class IamPolicy(AwsObject):
                             action[str_action] = str_action
                             continue
                         else:
-                            pdb.set_trace()
-                            raise NotImplementedError()
+                            raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
 
                     service_name, action_value = str_action.split(":", 1)
 
@@ -144,6 +194,12 @@ class IamPolicy(AwsObject):
                     action[service_name].append(action_value)
 
             def init_resource(self, key, value):
+                """
+                Init resource. Value received from AWS API.
+                :param key:
+                :param value:
+                :return:
+                """
                 if isinstance(value, str):
                     value = [value]
                 elif isinstance(value, list):
@@ -154,6 +210,12 @@ class IamPolicy(AwsObject):
                 self.init_default_attr(key, value)
 
             def init_effect(self, key, value):
+                """
+                Init effect. Value received from AWS API.
+                :param key:
+                :param value:
+                :return:
+                """
                 for enum_attr in self.Effects:
                     if enum_attr.value == value:
                         self.init_default_attr(key, enum_attr)
@@ -161,14 +223,18 @@ class IamPolicy(AwsObject):
                 raise ValueError(value)
 
             def tail_position_regexes_intersect(self, str_1, str_2):
+                """
+                Find intersection for tail position *.
+
+                :param str_1:
+                :param str_2:
+                :return:
+                """
                 i = 0
                 while i < min(len(str_1), len(str_2)):
                     if str_1[i] != str_2[i]:
                         return
                     i += 1
-
-                #if str_1 == 'aws-license-manager-service-*' and str_2 == 'aws-license-manager-service-*/resource_sync/*':
-                #    pdb.set_trace()
 
                 if len(str_1) == len(str_2):
                     return str_1
@@ -187,7 +253,6 @@ class IamPolicy(AwsObject):
                         return str_2
                 else:
                     raise ValueError()
-
 
             def intersect_resource_value_regex(self, resource_1, resource_2):
                 """
@@ -220,6 +285,11 @@ class IamPolicy(AwsObject):
                 return [":".join(lst_ret)]
 
             def intersect_resource(self, other):
+                """
+                Find intersection of two resources.
+                :param other:
+                :return:
+                """
                 if other.resource is None or self.resource is None:
                     return []
                 lst_ret = []
@@ -240,6 +310,13 @@ class IamPolicy(AwsObject):
 
             @staticmethod
             def check_service_intersect(service_name_1, service_name_2):
+                """
+                Check if there is an intersection in 2 resource names
+
+                :param service_name_1:
+                :param service_name_2:
+                :return:
+                """
                 if service_name_1 == "*" or service_name_2 == "*":
                     return True
 
@@ -249,15 +326,28 @@ class IamPolicy(AwsObject):
                 if "*" not in service_name_1 and "*" not in service_name_2:
                     return False
 
-                pdb.set_trace()
-
+                raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
+            
             @staticmethod
-            def check_action_intersect(service_name_1, service_name_2):
-                if service_name_1 == service_name_2:
+            def check_action_intersect(action_1, action_2):
+                """
+                Check if there is an intersection in 2 actions
+
+                :param action_1:
+                :param action_2:
+                :return:
+                """
+                if action_1 == action_2:
                     return True
-                pdb.set_trace()
+                raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
 
             def action_values_intersect(self, action_1, action_2):
+                """
+                Check if there is an intersection in 2 actions' values
+                :param action_1:
+                :param action_2:
+                :return:
+                """
                 if action_1 == "*":
                     return [action_2]
 
@@ -277,6 +367,13 @@ class IamPolicy(AwsObject):
                 return lst_ret
 
             def action_lists_values_intersect(self, actions_1, actions_2):
+                """
+                Find 2 actions' lists intersection
+
+                :param actions_1:
+                :param actions_2:
+                :return:
+                """
                 lst_ret = []
                 for action_1 in actions_1:
                     for action_2 in actions_2:
@@ -284,6 +381,11 @@ class IamPolicy(AwsObject):
                 return lst_ret
 
             def intersect_action(self, other):
+                """
+                Find an intersection of 2 actions.
+                :param other:
+                :return:
+                """
                 lst_ret = []
                 for self_service, self_action in self.action.items():
                     for other_service, other_action in other.action.items():
@@ -293,11 +395,15 @@ class IamPolicy(AwsObject):
                 return lst_ret
 
             class Effects(Enum):
+                """
+                Possible values for effect statement.
+                """
                 ALLOW = "Allow"
                 DENY = "Deny"
 
             class Resource:
                 """
+                Class representing a resource record
                 ARN built by this specs:
                 https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
                 """
@@ -342,7 +448,7 @@ class IamPolicy(AwsObject):
                             if lst_arn[part_index] == "*":
                                 setattr(self, self.INIT_PARTS[part_index], arn_part)
                             else:
-                                pdb.set_trace()
+                                raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
                         else:
                             setattr(self, self.INIT_PARTS[part_index], arn_part)
 
@@ -353,6 +459,11 @@ class IamPolicy(AwsObject):
                         part_index += 1
 
                 def intersect(self, other):
+                    """
+                    Return the intersection of 2 resources.
+                    :param other:
+                    :return:
+                    """
                     lst_ret = []
                     for value in self.INIT_PARTS.values():
                         lst_part = self._intersect_arn_part(getattr(self, value), getattr(other, value))
@@ -361,8 +472,7 @@ class IamPolicy(AwsObject):
                         if len(lst_part) > 1:
                             raise NotImplementedError(lst_part)
                         lst_ret.append(lst_part[0])
-                    pdb.set_trace()
-                    return lst_ret
+                    raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
 
                 def _intersect_arn_part(self, self_part, other_part):
                     if other_part == "*":
@@ -374,7 +484,7 @@ class IamPolicy(AwsObject):
                     if "*" not in self_part and "*" not in other_part:
                         return [self_part] if self_part == other_part else None
 
-                    pdb.set_trace()
+                    raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
 
                 """
                   191  sudo growpart /dev/xvda 1

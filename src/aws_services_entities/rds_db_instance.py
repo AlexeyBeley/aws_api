@@ -1,13 +1,10 @@
-import pdb
-
-import socket
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
 
 from aws_object import AwsObject
-from ip import IP
+
 
 class DBInstance(AwsObject):
     def __init__(self, dict_src, from_cache=False):
@@ -75,12 +72,17 @@ class DBInstance(AwsObject):
 
 
     def _init_object_from_cache(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {}
         self._init_from_cache(dict_src, options)
 
     def get_dns_records(self):
         """
-
+        Get self dns address
         :return: list of self dns records, [] else
         """
         ret = [self.endpoint["Address"]] if self.endpoint["Address"] else []

@@ -1,17 +1,17 @@
-import pdb
-
-import json
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
+"""
+AWS ELB V2 handling
+"""
 
 from aws_object import AwsObject
 
 
 class LoadBalancer(AwsObject):
+    """
+    AWS ELB V2 representation
+    """
     def __init__(self, dict_src, from_cache=False):
-        super(LoadBalancer, self).__init__(dict_src)
+        super().__init__(dict_src)
+        self.dns_name = None
         if from_cache:
             self._init_object_from_cache(dict_src)
             return
@@ -34,6 +34,11 @@ class LoadBalancer(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_object_from_cache(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {
                    'created_date':  self.init_date_attr_from_cache_string,
                    }
@@ -68,4 +73,8 @@ class LoadBalancer(AwsObject):
         return ret
 
     def get_all_addresses(self):
+        """
+        Get all self addresses
+        :return:
+        """
         return [self.dns_name]

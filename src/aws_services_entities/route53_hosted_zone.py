@@ -29,6 +29,11 @@ class HostedZone(AwsObject):
         self.init_attrs(dict_src, init_options)
 
     def _init_object_from_cache(self, dict_src):
+        """
+        Init the object from saved cache dict
+        :param dict_src:
+        :return:
+        """
         options = {"records": self._init_records_from_cache}
         self._init_from_cache(dict_src, options)
 
