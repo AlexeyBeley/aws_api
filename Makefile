@@ -58,7 +58,7 @@ pylint: venv_dir pylint_raw
 
 raw_pylint:
 	source ${VENV_DIR}/bin/activate &&\
-	pylint ${SRC_DIR}/aws_api/src/aws_services_entities/iam_policy.py
+	pylint ${SRC_DIR}/aws_api/src/aws_services_entities/iam_role.py
 	#pylint ${SRC_FILES}
 
 
