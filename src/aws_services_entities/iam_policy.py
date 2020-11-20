@@ -16,7 +16,7 @@ class IamPolicy(AwsObject):
         """
         self.document = None
 
-        super(IamPolicy, self).__init__(dict_src, from_cache=from_cache)
+        super().__init__(dict_src, from_cache=from_cache)
         if from_cache:
             self._init_policy_from_cashe(dict_src)
             return
@@ -112,7 +112,7 @@ class IamPolicy(AwsObject):
 
             self._init_from_cache(dict_src, options)
 
-        def init_statement(self, key, lst_src, from_cache=False):
+        def init_statement(self, _, lst_src, from_cache=False):
             """
             Init single statement.
             :param key:
@@ -184,8 +184,8 @@ class IamPolicy(AwsObject):
                         if str_action == "*":
                             action[str_action] = str_action
                             continue
-                        else:
-                            raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
+
+                        raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
 
                     service_name, action_value = str_action.split(":", 1)
 
@@ -222,7 +222,9 @@ class IamPolicy(AwsObject):
                         return
                 raise ValueError(value)
 
-            def tail_position_regexes_intersect(self, str_1, str_2):
+            # pylint: disable=R0911
+            @staticmethod
+            def tail_position_regexes_intersect(str_1, str_2):
                 """
                 Find intersection for tail position *.
 
@@ -233,7 +235,7 @@ class IamPolicy(AwsObject):
                 i = 0
                 while i < min(len(str_1), len(str_2)):
                     if str_1[i] != str_2[i]:
-                        return
+                        return None
                     i += 1
 
                 if len(str_1) == len(str_2):
@@ -252,7 +254,9 @@ class IamPolicy(AwsObject):
                     if str_1[i] == "*":
                         return str_2
                 else:
-                    raise ValueError()
+                    raise ValueError(str_1, str_2)
+
+                return None
 
             def intersect_resource_value_regex(self, resource_1, resource_2):
                 """
@@ -281,7 +285,6 @@ class IamPolicy(AwsObject):
                         lst_ret.append(ret)
                     i += 1
 
-
                 return [":".join(lst_ret)]
 
             def intersect_resource(self, other):
@@ -293,12 +296,16 @@ class IamPolicy(AwsObject):
                 if other.resource is None or self.resource is None:
                     return []
                 lst_ret = []
+
+                # pylint: disable=E1133
                 for self_resource in self.resource:
                     if self_resource == "*":
+                        # pylint: disable=R1721
                         return [other_resource for other_resource in other.resource]
 
                     for other_resource in other.resource:
                         if other_resource == "*":
+                            # pylint: disable=R1721
                             return [self_resource for self_resource in self.resource]
 
                         if "*" in self_resource or "*" in other_resource:
@@ -327,7 +334,7 @@ class IamPolicy(AwsObject):
                     return False
 
                 raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
-            
+
             @staticmethod
             def check_action_intersect(action_1, action_2):
                 """
@@ -359,8 +366,7 @@ class IamPolicy(AwsObject):
                     ret = self.tail_position_regexes_intersect(action_1, action_2)
                     if ret is not None:
                         return [ret]
-                    else:
-                        return []
+                    return []
 
                 if action_1 == action_2:
                     return [action_1]
@@ -474,7 +480,15 @@ class IamPolicy(AwsObject):
                         lst_ret.append(lst_part[0])
                     raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
 
-                def _intersect_arn_part(self, self_part, other_part):
+                @staticmethod
+                def _intersect_arn_part(self_part, other_part):
+                    """
+                    Find the intersection of arn_part:330
+
+                    :param self_part:
+                    :param other_part:
+                    :return:
+                    """
                     if other_part == "*":
                         return [self_part]
 
@@ -485,10 +499,3 @@ class IamPolicy(AwsObject):
                         return [self_part] if self_part == other_part else None
 
                     raise NotImplementedError("Not yet implemented, replaced pdb.set_trace")
-
-                """
-                  191  sudo growpart /dev/xvda 1
-  192  lsblk
-  193  df -h
-  194  sudo resize2fs /dev/xvda1
-                """
