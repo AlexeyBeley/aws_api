@@ -9,7 +9,10 @@ class DBInstance(AwsObject):
     Class representing RDS DB instance
     """
     def __init__(self, dict_src, from_cache=False):
-        super(DBInstance, self).__init__(dict_src)
+        super().__init__(dict_src)
+        self.endpoint = None
+        self.vpc_security_groups = None
+
         if from_cache:
             self._init_object_from_cache(dict_src)
             return
@@ -92,6 +95,7 @@ class DBInstance(AwsObject):
         Get self dns address
         :return: list of self dns records, [] else
         """
+        # pylint: disable=E1136
         ret = [self.endpoint["Address"]] if self.endpoint["Address"] else []
         return ret
 
@@ -102,11 +106,15 @@ class DBInstance(AwsObject):
         :return:
         """
         ret = []
+        # pylint: disable=E1133
         for sg in self.vpc_security_groups:
             if sg["Status"] != "active":
-                raise Exception
+                raise Exception("Unknown status")
+
+            # pylint: disable=E1136
             endpoint = {"sg_id": sg["VpcSecurityGroupId"]}
             endpoint["dns"] = self.endpoint["Address"]
+            # pylint: disable=E1136
             endpoint["port"] = self.endpoint["Port"]
 
             endpoint["description"] = "rds: {}".format(self.name)
