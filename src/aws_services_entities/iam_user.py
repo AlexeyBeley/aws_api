@@ -1,21 +1,19 @@
-import pdb
-import re
-
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
-
+"""
+Module to handle AWS IAM Users.
+"""
 from aws_object import AwsObject
 
 
 class IamUser(AwsObject):
+    """
+    Class representing IAM user.
+    """
     def __init__(self, dict_src, from_cache=False):
         """
         Init Iam user with boto3 dict
         :param dict_src:
         """
-        super(IamUser, self).__init__(dict_src)
+        super().__init__(dict_src)
         if from_cache:
             self._init_user_from_cashe(dict_src)
             return
