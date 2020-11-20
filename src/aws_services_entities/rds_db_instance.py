@@ -1,12 +1,13 @@
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.abspath("../.."), "IP", "ip", "src"))
-
+"""
+Module to handle AWS RDS instances
+"""
 from aws_object import AwsObject
 
 
 class DBInstance(AwsObject):
+    """
+    Class representing RDS DB instance
+    """
     def __init__(self, dict_src, from_cache=False):
         super(DBInstance, self).__init__(dict_src)
         if from_cache:
@@ -64,7 +65,13 @@ class DBInstance(AwsObject):
 
         self.init_attrs(dict_src, init_options)
 
-    def init_db_instance_identifier(self, key_name, value):
+    def init_db_instance_identifier(self, _, value):
+        """
+        Init DB instance identifier from AWS API response
+        :param _:
+        :param value:
+        :return:
+        """
         if self.name is not None:
             return
 
