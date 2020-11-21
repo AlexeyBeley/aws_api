@@ -1,6 +1,12 @@
-import pdb
+"""
+Module to handle readable text.
+"""
 
-class TextBlock(object):
+
+class TextBlock:
+    """
+    Text block class.
+    """
     def __init__(self, header):
         self.header = header
         self.lines = []
@@ -15,6 +21,12 @@ class TextBlock(object):
         return ret
 
     def format_pprint(self, shift=0):
+        """
+        Format self in a readable format.
+
+        :param shift:
+        :return:
+        """
         header_shift = " "*shift
         ret = f"{header_shift}* {self.header}"
 
@@ -28,4 +40,3 @@ class TextBlock(object):
         if len(self.footer) > 0:
             ret += "\n" + "\n".join(self.footer)
         return ret
-

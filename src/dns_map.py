@@ -1,7 +1,12 @@
-import pdb
+"""
+Module representing DNS Map.
+"""
 
 
-class DNSMapNode(object):
+class DNSMapNode:
+    """
+    Class representing dns map node.
+    """
     POINTER = "pointer"
     RESOURCE = "res"
 
@@ -13,26 +18,26 @@ class DNSMapNode(object):
         self.hosted_zone = None  # self hosted zone
         self.destination = None  # the dns_name, used to point this pointer (for example multiple names for server will generate multiple nodes with the same data)
 
-    def get_dephs(self):
-        pdb.set_trace()
-        return 1 + len(self.children) if self.next else 1
 
-
-class DNSMap(object):
+class DNSMap:
+    """
+    DNS map class
+    """
     def __init__(self, hosted_zones):
         self.nodes = {}
         self.hosted_zones = hosted_zones
         self.unmapped_records = []
 
     def add_resource_node(self, dns_name, seed):
+        """
+        Add resource node.
+        """
         if dns_name != dns_name.rstrip("."):
-            pdb.set_trace()
-            raise Exception
+            raise NotImplementedError("Replacement of pdb.set_trace")
 
         dns_name = dns_name.rstrip(".")
         if dns_name in self.nodes:
-            pdb.set_trace()
-            raise Exception(dns_name)
+            raise NotImplementedError("Replacement of pdb.set_trace")
 
         node = DNSMapNode()
         node.data = seed
@@ -42,6 +47,7 @@ class DNSMap(object):
 
     def add_pointer_node(self, dns_name, hosted_zone, record, pointed_dns):
         """
+        Add pointer node.
 
         :param dns_name: the dns_name this DNSMapNode is being pointed by
         :param hosted_zone:
@@ -68,9 +74,15 @@ class DNSMap(object):
         self.nodes[dns_name] = node
 
     def prepare_map_add_atype_records(self, dict_types):
+        """
+        Prepare map Add atype record.
+        :param dict_types:
+        :return:
+        """
+        # pylint: disable=R1721
         atype_records = [x for x in dict_types["A"]]
 
-        for hz, seed in atype_records:
+        for _, seed in atype_records:
             if hasattr(seed, "alias_target"):
                 continue
 
@@ -80,38 +92,51 @@ class DNSMap(object):
                 raise Exception
 
     def prepare_map(self):
+        """
+        Prepare the map.
+        :return:
+        """
         dict_types = self.split_records_by_type()
         self.prepare_map_add_atype_records(dict_types)
-
+        # pylint: disable=R1721
         left_dns_records = [x for x in dict_types["CNAME"]] + [x for x in dict_types["A"] if hasattr(x, "alias_target")] + [x for x in dict_types["SRV"]]
         self.unmapped_records = self.recursive_prepare_map(left_dns_records)
 
-    def get_pointed_dns_addresses(self, record):
+    @staticmethod
+    def get_pointed_dns_addresses(record):
+        """
+        Get the dns address
+        :param record:
+        :return:
+        """
         if record.type == "CNAME":
             if len(record.resource_records) != 1:
-                raise Exception
+                raise Exception()
 
             pointed_dnss = [record.resource_records[0]["Value"].rstrip(".")]
         elif record.type == "A":
             if not hasattr(record, "alias_target"):
-                raise Exception
+                raise Exception()
             if not record.alias_target:
-                raise Exception
+                raise Exception()
 
             pointed_dnss = [record.alias_target["DNSName"].rstrip(".")]
         elif record.type == "SRV":
-            # {'Name': 'srv.alerts.local.env.fbx.im.', 'Type': 'SRV', 'TTL': 1, 'ResourceRecords': [{'Value': '1 10 10080 alerts.local.env.fbx.im'}]}
             if not hasattr(record, "resource_records"):
-                raise Exception
+                raise Exception()
 
             pointed_dnss = [rr["Value"].rsplit(" ", 1)[-1].rstrip(".") for rr in record.resource_records]
         else:
-            pdb.set_trace()
-            raise Exception
+            raise NotImplementedError("Replacement of pdb.set_trace")
 
         return pointed_dnss
 
     def recursive_prepare_map(self, unmapped_dns_records):
+        """
+        Prepare the map recursively.
+        :param unmapped_dns_records:
+        :return:
+        """
         if not unmapped_dns_records:
             return []
         new_unmapped_dns_records = []
@@ -137,6 +162,10 @@ class DNSMap(object):
         return new_unmapped_dns_records
 
     def split_records_by_type(self):
+        """
+        Split records.
+        :return:
+        """
         dict_types = {}
         for hz in self.hosted_zones:
             for record in hz.records:

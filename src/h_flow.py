@@ -1,6 +1,12 @@
+"""
+Module handling h_flow
+"""
 
 
-class HFlowFilter(object):
+class HFlowFilter:
+    """
+    Filter representation
+    """
     def __init__(self):
         self.src = self.TunnelEdgeFilter()
         self.dst = self.TunnelEdgeFilter()
@@ -9,7 +15,10 @@ class HFlowFilter(object):
     def __str__(self):
         return "src:{}\ndst: {}".format(self.src, self.dst)
 
-    class TunnelEdgeFilter(object):
+    class TunnelEdgeFilter:
+        """
+        Edge filter class
+        """
         def __init__(self):
             self.ip = None
             self.service = None
@@ -19,7 +28,10 @@ class HFlowFilter(object):
             return "{},{},{}".format(self.ip, self.dns, self.service)
 
 
-class HFlow(object):
+class HFlow:
+    """
+    Class representing HFlow.
+    """
     def __init__(self):
         self.tunnel = None
         self.end_point_src = None
@@ -31,16 +43,23 @@ class HFlow(object):
         return ret
 
     def apply_dst_filters_on_start(self, h_filters):
+        """
+        H_Flow filters on start
+        :param h_filters:
+        :return:
+        """
         lst_ret = []
         for h_filter in h_filters:
-            #print("{}:{}".format(h_filter.info[0], h_filter.info[1]))
             lst_ret += self.apply_dst_filter_on_start(h_filter)
 
-        #for x in lst_ret:
-        #    print(x)
         return lst_ret
 
     def apply_dst_filter_on_start(self, h_filter):
+        """
+        Dst filters on start
+        :param h_filter:
+        :return:
+        """
         lst_ret = []
 
         for traffic_start, traffic_end in self.tunnel.traffic_start.apply_dst_filter(h_filter):
@@ -56,13 +75,18 @@ class HFlow(object):
         return lst_ret
 
     def copy(self, copy_src_traffic_to_dst=False):
+        """
+        Deep copy flow.
+        :param copy_src_traffic_to_dst:
+        :return:
+        """
         ret = HFlow()
         ret.tunnel = self.tunnel.copy(copy_src_traffic_to_dst=copy_src_traffic_to_dst)
         ret.end_point_src = self.end_point_src.copy()
         ret.end_point_dst = self.end_point_dst.copy()
         return ret
 
-    class EndPoint(object):
+    class EndPoint:
         """
         Hflow endpoint- maybe src, maybe dst.
         This is abstract object representing hflow next stop.
@@ -75,20 +99,38 @@ class HFlow(object):
 
         @property
         def ip(self):
+            """
+            Ip address
+            :return:
+            """
             return self._ip
 
         @ip.setter
         def ip(self, ip):
+            """
+            Set ip address
+            :param ip:
+            :return:
+            """
             if self._ip is not None:
                 raise Exception("IP can be single instance")
             self._ip = ip
 
         @property
         def dns(self):
+            """
+            DNS address
+            :return:
+            """
             return self._dns
 
         @dns.setter
         def dns(self, dns):
+            """
+            DNS address setter
+            :param dns:
+            :return:
+            """
             if self._dns is not None:
                 raise Exception("IP can be single instance")
             self._dns = dns
@@ -106,6 +148,10 @@ class HFlow(object):
                 self.custom[key] = value
 
         def copy(self):
+            """
+            Deep copy of self
+            :return:
+            """
             ret = HFlow.EndPoint()
             if self.ip is not None:
                 ret._ip = self.ip.copy()
@@ -114,7 +160,10 @@ class HFlow(object):
 
             ret.custom = self.custom
 
-    class Tunnel(object):
+    class Tunnel:
+        """
+        Class representing H_Flow Tunnel
+        """
         def __init__(self, traffic_start=None, traffic_end=None):
             self.traffic_start = traffic_start
             self.traffic_end = traffic_end
@@ -122,7 +171,10 @@ class HFlow(object):
         def __str__(self):
             return "{} ==>\n==> {}".format(str(self.traffic_start), str(self.traffic_end))
 
-        class Traffic(object):
+        class Traffic:
+            """
+            Class representing a single traffic flow
+            """
             ANY = None
 
             def __init__(self):
@@ -139,11 +191,22 @@ class HFlow(object):
                 return "[ip:{} , dns:{} , service:{} -> ip:{} , dns:{} , service:{}]".format(self.ip_src, self.dns_src, self.service_src, self.ip_dst, self.dns_dst, self.service_dst)
 
             def intersect(self, self_end_point, other_end_point):
+                """
+                Find intersection.
+                :param self_end_point:
+                :param other_end_point:
+                :return:
+                """
                 if self_end_point is self.any():
                     return other_end_point
                 return self_end_point.intersect(other_end_point)
 
             def apply_dst_filter(self, h_filter):
+                """
+                Apply the filter on destination.
+                :param h_filter:
+                :return:
+                """
                 ip_src_intersect = self.intersect(self.ip_src, h_filter.ip_src)
                 if ip_src_intersect is None:
                     return []
@@ -165,10 +228,10 @@ class HFlow(object):
                 traffic_start.service_src = service_src_intersect
 
                 if h_filter.dns_src != self.dns_src:
-                    raise NotImplementedError
+                    raise NotImplementedError("Don't know what towrite here")
 
                 if h_filter.dns_dst != self.dns_dst:
-                    raise NotImplementedError
+                    raise NotImplementedError("Don't know what towrite here")
 
                 traffic_end = HFlow.Tunnel.Traffic()
                 traffic_end.ip_src = traffic_start.ip_src
@@ -181,6 +244,10 @@ class HFlow(object):
                 return [(traffic_start, traffic_end)]
 
             def copy(self):
+                """
+                Deep copy of self.
+                :return:
+                """
                 ret = HFlow.Tunnel.Traffic()
 
                 if self.ip_src is not None:
@@ -203,22 +270,47 @@ class HFlow(object):
 
                 return ret
 
-            def any(self):
+            @staticmethod
+            def any():
+                """
+                Return singleton ANY
+                :return:
+                """
                 if HFlow.Tunnel.Traffic.ANY is None:
                     HFlow.Tunnel.Traffic.ANY = HFlow.Tunnel.Traffic.Any()
                 return HFlow.Tunnel.Traffic.ANY
 
-            class Any(object):
+            class Any:
+                """
+                Class representing singleton ANY
+                """
                 def __str__(self):
                     return "any"
 
-                def copy(self):
+                @staticmethod
+                def copy():
+                    """
+                    Deep copy
+                    :return:
+                    """
+
                     return HFlow.Tunnel.Traffic.ANY
 
-                def intersect(self, other):
+                @staticmethod
+                def intersect(other):
+                    """
+                    Intersect of ANY - is the src object
+                    :param other:
+                    :return:
+                    """
                     return other
 
         def copy(self, copy_src_traffic_to_dst=False):
+            """
+            Deep copy of self
+            :param copy_src_traffic_to_dst:
+            :return:
+            """
             ret = HFlow.Tunnel()
             ret.traffic_start = self.traffic_start.copy()
 
@@ -230,8 +322,15 @@ class HFlow(object):
             return ret
 
         def repr_in(self):
-            return "[ip:{} , dns:{} , service:{}]".format(self.ip_src, self.dns_src, self.service_src)
+            """
+            Readable representation of in
+            :return:
+            """
+            return "[ip:{} , dns:{} , service:{}]".format(self.traffic_start.ip_src, self.traffic_start.dns_src, self.traffic_start.service_src)
 
         def repr_out(self):
-            return "[ip:{} , dns:{} , service:{}]".format(self.ip_dst, self.dns_dst, self.service_dst)
-
+            """
+            Readable representation of out
+            :return:
+            """
+            return "[ip:{} , dns:{} , service:{}]".format(self.traffic_start.ip_dst, self.traffic_start.dns_dst, self.traffic_start.service_dst)
