@@ -58,7 +58,7 @@ pylint: venv_dir pylint_raw
 
 raw_pylint:
 	source ${VENV_DIR}/bin/activate &&\
-	pylint ${SRC_DIR}/aws_api/src/aws_services_entities/rds_db_instance.py
+	pylint ${SRC_DIR}/aws_api/src/aws_services_entities/s3_bucket.py
 	#pylint ${SRC_FILES}
 
 
